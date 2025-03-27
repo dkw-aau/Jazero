@@ -1,0 +1,156 @@
+{
+  "scores": [
+    {
+      "table ID": "table-0823-973.json",
+      "headers": [
+        "Virus",
+        "Drug name",
+        "Year approved",
+        "Manufacturer"
+      ],
+      "table": [
+        [
+          {
+            "text": "Influenza"
+          },
+          {
+            "text": "Zanamivir"
+          },
+          {
+            "text": "1999"
+          },
+          {
+            "text": "GlaxoSmithKline"
+          }
+        ],
+        [
+          {
+            "text": "Influenza"
+          },
+          {
+            "text": "Peramivir"
+          },
+          {
+            "text": "2014"
+          },
+          {
+            "text": "BioCryst Pharmaceuticals"
+          }
+        ]
+      ],
+      "score": 0.81
+    },
+    {
+      "table ID": "table-0857-411.json",
+      "headers": [
+        "Symptom(s)",
+        "OTC Medicine"
+      ],
+      "table": [
+        [
+          {
+            "text": "Myalgia"
+          },
+          {
+            "text": "Analgesic"
+          }
+        ],
+        [
+          {
+            "text": "Nasal congestion"
+          },
+          {
+            "text": "Decongestant"
+          }
+        ],
+        [
+          {
+            "text": "Sore throat"
+          },
+          {
+            "text": "Anesthetic"
+          }
+        ],
+        [
+          {
+            "text": "Conjunctivitis"
+          },
+          {
+            "text": "Antihistamine"
+          }
+        ]
+      ],
+      "score": 0.72
+    },
+    {
+      "table ID": "table-0842-786.json",
+      "headers": [
+        "Class",
+        "Example agents"
+      ],
+      "table": [
+        [
+          {
+            "text": "Cereblon E3 ligase"
+          },
+          {
+            "text": "Thalidomide"
+          }
+        ],
+        [
+          {
+            "text": "Interleukin"
+          },
+          {
+            "text": "IL-2"
+          }
+        ],
+        [
+          {
+            "text": "Cytokine"
+          },
+          {
+            "text": "Interferon"
+          }
+        ]
+      ],
+      "score": 0.56
+    },
+    {
+      "table ID": "table-0863-65.json",
+      "headers": [
+        "Cancer type",
+        "Antigens"
+      ],
+      "table": [
+        [
+          {
+            "text": "Bladder cancer"
+          },
+          {
+            "text": "NY-ESO-1"
+          }
+        ],
+        [
+          {
+            "text": "Breast cancer"
+          },
+          {
+            "text": "HER2"
+          }
+        ],
+        [
+          {
+            "text": "Leukemia"
+          },
+          {
+            "text": "Wilms' tumor"
+          }
+        ]
+      ],
+      "score": 0.54
+    }
+  ],
+  "runtime": 21561200646,
+  "reduction": 0.823
+}

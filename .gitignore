@@ -1,0 +1,52 @@
+HELP.md
+**/__pycache__
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+knowledge-graph/neo4j/neo4j-server
+knowledge-graph/neo4j/*.ttl
+knowledge-graph/neo4j/*.nt
+JDLC/c/build/
+JDLC/c/lib/
+JDLC/c/.idea/
+JDLC/c/.vscode/
+web/package.json
+web/package-lock.json
+web/src/main/bundles/dev.bundle
+
+### Mounts ###
+index/
+logs/
+.tables/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Testing ###
+data-lake/.config.conf

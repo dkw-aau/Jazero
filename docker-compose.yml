@@ -1,0 +1,56 @@
+version: "3"
+
+services:
+  data-lake:
+    network_mode: host
+    build:
+      context: .
+      dockerfile: data-lake/Dockerfile
+    volumes:
+      - ./knowledge-graph/neo4j/:/home/knowledge-graph/neo4j
+      - ./index/:/index
+      - ./logs/:/logs
+      - ./.tables/:/srv/storage
+  entity-linker:
+    network_mode: host
+    build:
+      context: .
+      dockerfile: entity-linker/Dockerfile
+    volumes:
+      - ./knowledge-graph/neo4j/:/home/knowledge-graph/neo4j
+      - ./index/:/index
+      - ./kg:/home/kg
+  ekg-manager:
+    network_mode: host
+    build:
+      context: .
+      dockerfile: knowledge-graph/Dockerfile
+    volumes:
+      - ./knowledge-graph/neo4j/:/scripts
+      - ./index/:/index
+      - ./kg:/home/kg
+  embeddings:
+    image: postgres
+    container_name: jazero_pg
+    network_mode: host
+    environment:
+      - POSTGRES_USER=jazero
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=embeddings
+  neo4j:
+    image: neo4j:4.1.4
+    container_name: jazero_neo4j
+    network_mode: host
+    volumes:
+      - ./index/neo4j/data:/var/lib/neo4j/data
+      - ./index/neo4j/plugins:/var/lib/neo4j/plugins
+      - ./index/neo4j/import:/var/lib/neo4j/import
+      - ./index/mappings/:/index/mappings
+      - ./kg:/kg
+      - ./knowledge-graph/neo4j/:/scripts
+    environment:
+      - NEO4J_AUTH=neo4j/jazero_admin
+      - NEO4JLABS_PLUGINS='["apoc", "n10s"]'
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_use_neo4j_config=false
