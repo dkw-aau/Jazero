@@ -12,8 +12,8 @@ Then, start an instance by running the following command:
 ./start
 ```
 
-The first time you start an instance, the entity linker will construct its indexes which will take around 1 hour for a 10GB KG dataset.
-Therefore, do not start loading data until the entity linker finishes constructing its own indexes.
+The first time you start an instance, the EKG Manager will construct its Luecene indexes which will take around 1 hour for a 10GB KG dataset.
+Therefore, do not start loading data until the EKG Manager finishes constructing its own indexes.
 
 <b>Important:</b> The first time the instance is started, an admin must be set.
 This can be done <i>once</i> with the following command:
@@ -25,7 +25,8 @@ curl -H "Content-Type: application/json" -d '{"username": "admin", "password": "
 Instead of `admin` and `1234`, you can choose your own credentials for the admin.
 
 The following command will install the necessary plugins.
-This can run in parallel with the index construction in the entity linker.
+Execute the command once the EKG Manager has finished constructing its indexes.
+The EKG Manager will let you know whe it is done.
 
 ```bash
 docker exec jazero_neo4j /scripts/install.sh
