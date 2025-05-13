@@ -11,7 +11,6 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.*;
-import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.*;
@@ -34,43 +33,37 @@ import dk.aau.cs.dkwe.edao.structures.Query;
 import dk.aau.cs.dkwe.edao.structures.TableQuery;
 import org.springframework.web.servlet.View;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Route(value = "")
-public class SearchView extends Div
+public class SearchView extends VerticalLayout
 {
-    private final VerticalLayout layout = new VerticalLayout();
-    private final List<List<StringBuilder>> query = new ArrayList<>();
-    private final Section querySection = new Section();
-    private final Grid<Pair<String, Integer>> entityCounts = new Grid<>();
     private final Main main;
-    private final View error;
-    private Result result;
-    private Component searchComponent;
-    private Component resultComponent = null;
-    private Component statsComponent;
+    private Component header, selectDL, searchBar, statsComponent, resultComponent = null;
     private String dataLake = null;
     private Map<String, Integer> stats = null;
+    private final Grid<Pair<String, Integer>> entityCounts = new Grid<>();
+    private final List<List<StringBuilder>> query = new ArrayList<>();
+    private final VerticalLayout queryInputLayout = new VerticalLayout();
+    private Result result;
     private static final boolean debug = true;
     private static final Random random = new Random();
 
     public SearchView(View error, Main main)
     {
-        this.layout.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+        setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
 
-        Component header = buildHeader(), selectDL = buildSelectDataLake(), searchBar = buildSearchBar();
-        this.searchComponent = searchBar;
-        this.searchComponent.setVisible(false);
-        this.error = error;
-        this.entityCounts.setHeight("200px");
-
-        Div mainPage = new Div(selectDL, searchBar);
-        this.layout.add(header, mainPage);
-        add(this.layout);
-        setHeightFull();
+        this.header = buildHeader();
+        this.selectDL = buildSelectDataLake();
+        this.searchBar = buildSearchBar();
+        this.searchBar.setVisible(false);
+        add(this.header, this.selectDL, this.searchBar);
         this.main = main;
     }
 
@@ -113,7 +106,7 @@ public class SearchView extends Div
         catch (Exception ignored) {}
     }
 
-    private Component buildHeader()
+    private static Component buildHeader()
     {
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
@@ -151,7 +144,7 @@ public class SearchView extends Div
         dataLakes.setClassName("combo-box");
         dataLakes.addValueChangeListener(event -> {
             this.dataLake = dataLakes.getValue();
-            this.searchComponent.setVisible(true);
+            this.searchBar.setVisible(true);
             String ip = ConfigReader.getIp(this.dataLake),
                     username = ConfigReader.getUsername(this.dataLake),
                     password = ConfigReader.getPassword(this.dataLake);
@@ -187,37 +180,29 @@ public class SearchView extends Div
 
     private Component buildSearchBar()
     {
-        VerticalLayout layout = new VerticalLayout();
         Component queryInput = buildQueryInput();
         Component entityCounts = buildEntityCounts();
-        Component actionComponent = buildSearchComponent();
-        layout.add(entityCounts, queryInput, actionComponent);
-        layout.setAlignItems(FlexComponent.Alignment.CENTER);
-        layout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+        Component parameterComponent = buildParameters();
 
-        return layout;
+        return new VerticalLayout(queryInput, new HorizontalLayout(entityCounts, parameterComponent));
     }
 
     private Component buildQueryInput()
     {
-        FlexLayout tableLayout = new FlexLayout();
         HorizontalLayout header = new HorizontalLayout();
         H2 label = new H2("Input Query");
         label.addClassNames(LumoUtility.FontWeight.BOLD);
         initializeQueryTable();
         buildQueryTable();
 
-        Scroller queryScroller = new Scroller(new Div(this.querySection));
         Icon addRowIcon = new Icon(VaadinIcon.CHEVRON_DOWN), removeRowIcon = new Icon(VaadinIcon.CHEVRON_UP),
                 addColumnIcon = new Icon(VaadinIcon.CHEVRON_RIGHT), removeColumnIcon = new Icon(VaadinIcon.CHEVRON_LEFT);
         addRowIcon.setColor("#3D423F");
         removeRowIcon.setColor("#3D423F");
         addColumnIcon.setColor("#3D423F");
         removeColumnIcon.setColor("#3D423F");
-        queryScroller.setMaxWidth("1200px");
-        queryScroller.setMinWidth("630px");
-        queryScroller.setMaxHeight("350px");
 
+        Scroller queryScroller = new Scroller(this.queryInputLayout);
         Button addRowButton = new Button(new HorizontalLayout(addRowIcon, new H4("Add row")), item -> addRow());
         Button removeRowButton = new Button(new HorizontalLayout(removeRowIcon, new H4("Remove row")), item -> removeRow());
         Button addColumnButton = new Button(new HorizontalLayout(addColumnIcon, new H4("Add column")), item -> addColumn());
@@ -230,56 +215,130 @@ public class SearchView extends Div
         clearQueryButton.getStyle().set("margin-left", "100px");
         clearQueryButton.getStyle().set("background-color", "#FD7B7C");
         clearQueryButton.getStyle().set("--vaadin-button-text-color", "white");
+        queryScroller.setMaxWidth("1200px");
+        queryScroller.setMinWidth("650px");
+        queryScroller.setMaxHeight("350px");
         header.add(label, clearQueryButton);
 
         HorizontalLayout rowButtonsLayout = new HorizontalLayout(addRowButton, removeRowButton);
         VerticalLayout columnButtonsLayout = new VerticalLayout(addColumnButton, removeColumnButton);
-        HorizontalLayout horizontalCell = new HorizontalLayout(queryScroller, columnButtonsLayout);
-        VerticalLayout verticalCell = new VerticalLayout(header, horizontalCell, rowButtonsLayout);
-        tableLayout.add(verticalCell);
+        HorizontalLayout mainHorizontalLayout = new HorizontalLayout(queryScroller, columnButtonsLayout);
+        VerticalLayout mainVerticalLayout = new VerticalLayout(mainHorizontalLayout, rowButtonsLayout);
+        VerticalLayout mainLayout = new VerticalLayout(header, mainVerticalLayout);
 
-        return tableLayout;
+        return new FlexLayout(mainLayout);
     }
 
-    private Component buildEntityCounts()
+    private void initializeQueryTable()
     {
-        H3 label = new H3("Entity counts");
-        label.addClassNames(LumoUtility.FontWeight.BOLD);
+        int rows = 3, columns = 3;
+
+        for (int i = 0; i < rows; i++)
+        {
+            List<StringBuilder> column = new ArrayList<>();
+
+            for (int j = 0; j < columns; j++)
+            {
+                column.add(new StringBuilder());
+            }
+
+            this.query.add(column);
+        }
+    }
+
+    private void clearQueryTable()
+    {
+        this.query.clear();
         updateEntityCounts();
-
-        return new VerticalLayout(label, this.entityCounts);
+        initializeQueryTable();
+        buildQueryTable();
     }
 
-    private Component buildSearchComponent()
+    private void setQuery(Table<String> table)
     {
-        VerticalLayout leftColumnLayout = new VerticalLayout();
-        ComboBox<String> entitySimilarities = new ComboBox<>("Entity similarity");
-        IntegerField topKField = new IntegerField("Top-K");
-        entitySimilarities.setItems("RDF types", "Predicates", "Embeddings");
-        entitySimilarities.setRenderer(new ComponentRenderer<>(item -> {
-            Span span = new Span(item);
-            span.addClassNames("drop-down-items");
-            return span;
-        }));
-        entitySimilarities.setClassName("combo-box");
-        topKField.setRequiredIndicatorVisible(true);
-        topKField.setMin(1);
-        topKField.setMax(500000);
-        topKField.setValue(10);
-        topKField.setStepButtonsVisible(true);
-        leftColumnLayout.add(entitySimilarities, topKField);
+        int rows = table.rowCount();
+        this.query.clear();
 
-        Checkbox prefilterBox = new Checkbox("Pre-filter", false);
-        VerticalLayout rightColumnLayout = new VerticalLayout();
-        Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
-                prefilterBox.getValue()));
-        searchButton.setWidth("200px");
-        searchButton.setHeight("80px");
-        searchButton.getStyle().set("background-color", "#57AF34");
-        searchButton.setClassName("search-button");
-        rightColumnLayout.add(prefilterBox, searchButton);
+        for (int row = 0; row < rows; row++)
+        {
+            Table.Row<String> tableRow = table.getRow(row);
+            int columns = tableRow.size();
+            List<StringBuilder> columnItems = new ArrayList<>();
 
-        return new HorizontalLayout(leftColumnLayout, rightColumnLayout);
+            for (int column = 0; column < columns; column++)
+            {
+                String cell = table.getRow(row).get(column);
+                List<String> links = keywordSearch(cell);
+
+                if (!links.isEmpty())
+                {
+                    columnItems.add(new StringBuilder(links.get(0)));
+                }
+
+                else
+                {
+                    columnItems.add(new StringBuilder());
+                }
+            }
+
+            if (!columnItems.isEmpty())
+            {
+                this.query.add(columnItems);
+            }
+        }
+
+        if (!this.query.isEmpty())
+        {
+            for (int i = 0; i < this.query.get(0).size(); i++)
+            {
+                int column = i;
+
+                if (this.query.stream().allMatch(row -> row.get(column).isEmpty()))
+                {
+                    this.query.forEach(row -> row.remove(column));
+                }
+            }
+        }
+
+        updateEntityCounts();
+        buildQueryTable();
+    }
+
+    private void buildQueryTable()
+    {
+        VerticalLayout tableRowLayout = new VerticalLayout();
+        int rows = this.query.size();
+
+        for (int row = 0; row < rows; row++)
+        {
+            HorizontalLayout tableColumnLayout = new HorizontalLayout();
+            int columns = this.query.get(row).size();
+
+            for (int column = 0; column < columns; column++)
+            {
+                int rowCoordinate = row, columnCoordinate = column;
+                Autocomplete textField = new Autocomplete();
+                String cellContent = this.query.get(row).get(column).toString();
+                textField.setValue(cellContent);
+                textField.getStyle().set("font-family", "Courier New");
+                textField.addChangeListener(event -> {
+                    String content = event.getValue();
+                    textField.setOptions(keywordSearch(content));
+                });
+                textField.addAutocompleteValueAppliedListener(event -> {
+                    String content = event.getValue();
+                    int oldContentLength = this.query.get(rowCoordinate).get(columnCoordinate).length();
+                    this.query.get(rowCoordinate).get(columnCoordinate).replace(0, oldContentLength, content);
+                    updateEntityCounts();
+                });
+                tableColumnLayout.add(textField);
+            }
+
+            tableRowLayout.add(tableColumnLayout);
+        }
+
+        this.queryInputLayout.removeAll();
+        this.queryInputLayout.add(tableRowLayout);
     }
 
     private void addRow()
@@ -332,41 +391,72 @@ public class SearchView extends Div
         }
     }
 
-    private void buildQueryTable()
+    private Component buildEntityCounts()
     {
-        VerticalLayout tableRowLayout = new VerticalLayout();
-        int rows = this.query.size();
+        H3 label = new H3("Entity counts");
+        label.addClassNames(LumoUtility.FontWeight.BOLD);
+        updateEntityCounts();
 
-        for (int row = 0; row < rows; row++)
+        return new VerticalLayout(label, this.entityCounts);
+    }
+
+    private void updateEntityCounts()
+    {
+        this.entityCounts.removeAllColumns();
+        this.entityCounts.addComponentColumn(item -> {
+            VerticalLayout layout = new VerticalLayout();
+            Html entity = new Html("<div><b>Entity</b>" + item.getFirst() + "</div>"),
+                    count = new Html("<div><b>Count</b>" + item.getSecond() + "</div>");
+            layout.add(entity, count);
+
+            return layout;
+        }).setHeader("Entity counts").setVisible(false);
+
+        try
         {
-            HorizontalLayout tableColumnLayout = new HorizontalLayout();
-            int columns = this.query.get(row).size();
-
-            for (int column = 0; column < columns; column++)
-            {
-                int rowCoordinate = row, columnCoordinate = column;
-                Autocomplete textField = new Autocomplete();
-                String cellContent = this.query.get(row).get(column).toString();
-                textField.setValue(cellContent);
-                textField.getStyle().set("font-family", "Courier New");
-                textField.addChangeListener(event -> {
-                    String content = event.getValue();
-                    textField.setOptions(keywordSearch(content));
-                });
-                textField.addAutocompleteValueAppliedListener(event -> {
-                    String content = event.getValue();
-                    int oldContentLength = this.query.get(rowCoordinate).get(columnCoordinate).length();
-                    this.query.get(rowCoordinate).get(columnCoordinate).replace(0, oldContentLength, content);
-                    updateEntityCounts();
-                });
-                tableColumnLayout.add(textField);
-            }
-
-            tableRowLayout.add(tableColumnLayout);
+            this.entityCounts.addColumn(Pair::getFirst).setHeader("Entity");
+            this.entityCounts.addColumn(Pair::getSecond).setHeader("Count");
+            this.entityCounts.setItems(tableContents());
+            this.entityCounts.setWidth("600px");
         }
 
-        this.querySection.removeAll();
-        this.querySection.add(tableRowLayout);
+        catch (RuntimeException e)
+        {
+            Dialog errorDialog = errorDialog(e.getMessage());
+            errorDialog.open();
+        }
+    }
+
+    private Component buildParameters()
+    {
+        VerticalLayout leftColumnLayout = new VerticalLayout();
+        ComboBox<String> entitySimilarities = new ComboBox<>("Entity similarity");
+        IntegerField topKField = new IntegerField("Top-K");
+        entitySimilarities.setItems("RDF types", "Predicates", "Embeddings");
+        entitySimilarities.setRenderer(new ComponentRenderer<>(item -> {
+            Span span = new Span(item);
+            span.addClassNames("drop-down-items");
+            return span;
+        }));
+        entitySimilarities.setClassName("combo-box");
+        topKField.setRequiredIndicatorVisible(true);
+        topKField.setMin(1);
+        topKField.setMax(500000);
+        topKField.setValue(10);
+        topKField.setStepButtonsVisible(true);
+        leftColumnLayout.add(entitySimilarities, topKField);
+
+        Checkbox prefilterBox = new Checkbox("Pre-filter", false);
+        VerticalLayout rightColumnLayout = new VerticalLayout();
+        Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
+                prefilterBox.getValue()));
+        searchButton.setWidth("200px");
+        searchButton.setHeight("80px");
+        searchButton.getStyle().set("background-color", "#57AF34");
+        searchButton.setClassName("search-button");
+        rightColumnLayout.add(prefilterBox, searchButton);
+
+        return new HorizontalLayout(leftColumnLayout, rightColumnLayout);
     }
 
     private List<String> keywordSearch(String query)
@@ -478,143 +568,6 @@ public class SearchView extends Div
         }
     }
 
-    private void initializeQueryTable()
-    {
-        int rows = 3, columns = 3;
-
-        for (int i = 0; i < rows; i++)
-        {
-            List<StringBuilder> column = new ArrayList<>();
-
-            for (int j = 0; j < columns; j++)
-            {
-                column.add(new StringBuilder());
-            }
-
-            this.query.add(column);
-        }
-    }
-
-    private void clearQueryTable()
-    {
-        this.query.clear();
-        updateEntityCounts();
-        initializeQueryTable();
-        buildQueryTable();
-    }
-
-    private void setQuery(Table<String> table)
-    {
-        int rows = table.rowCount();
-        this.query.clear();
-
-        for (int row = 0; row < rows; row++)
-        {
-            Table.Row<String> tableRow = table.getRow(row);
-            int columns = tableRow.size();
-            List<StringBuilder> columnItems = new ArrayList<>();
-
-            for (int column = 0; column < columns; column++)
-            {
-                String cell = table.getRow(row).get(column);
-                List<String> links = keywordSearch(cell);
-
-                if (!links.isEmpty())
-                {
-                    columnItems.add(new StringBuilder(links.get(0)));
-                }
-
-                else
-                {
-                    columnItems.add(new StringBuilder());
-                }
-            }
-
-            if (!columnItems.isEmpty())
-            {
-                this.query.add(columnItems);
-            }
-        }
-
-        if (!this.query.isEmpty())
-        {
-            for (int i = 0; i < this.query.get(0).size(); i++)
-            {
-                int column = i;
-
-                if (this.query.stream().allMatch(row -> row.get(column).isEmpty()))
-                {
-                    this.query.forEach(row -> row.remove(column));
-                }
-            }
-        }
-
-        updateEntityCounts();
-        buildQueryTable();
-    }
-
-    private void updateEntityCounts()
-    {
-        this.entityCounts.removeAllColumns();
-        this.entityCounts.addComponentColumn(item -> {
-            VerticalLayout layout = new VerticalLayout();
-            Html entity = new Html("<div><b>Entity</b>" + item.getFirst() + "</div>"),
-                    count = new Html("<div><b>Count</b>" + item.getSecond() + "</div>");
-            layout.add(entity, count);
-
-            return layout;
-        }).setHeader("Entity counts").setVisible(false);
-
-        try
-        {
-            this.entityCounts.addColumn(Pair::getFirst).setHeader("Entity");
-            this.entityCounts.addColumn(Pair::getSecond).setHeader("Count");
-            this.entityCounts.setItems(tableContents());
-            this.entityCounts.setWidth("600px");
-        }
-
-        catch (RuntimeException e)
-        {
-            Dialog errorDialog = errorDialog(e.getMessage());
-            errorDialog.open();
-        }
-    }
-
-    private Set<Pair<String, Integer>> tableContents()
-    {
-        Set<Pair<String, Integer>> contents = new TreeSet<>(Comparator.comparing(Pair::getFirst));
-
-        for (List<StringBuilder> row : this.query)
-        {
-            for (StringBuilder cell : row)
-            {
-                String content = cell.toString();
-
-                if (!content.isEmpty())
-                {
-                    contents.add(new Pair<>(content, count(content)));
-                }
-            }
-        }
-
-        return contents;
-    }
-
-    private Dialog errorDialog(String message)
-    {
-        Dialog errorDialog = new Dialog("Error");
-        VerticalLayout layout = new VerticalLayout();
-        H4 h4Message = new H4(message);
-        layout.add(h4Message);
-        errorDialog.add(layout);
-
-        Button closeButton = new Button(new Icon("lumo", "cross"), event -> errorDialog.close());
-        errorDialog.getHeader().add(closeButton);
-        this.layout.add(errorDialog);
-
-        return errorDialog;
-    }
-
     private int count(String entity)
     {
         if (debug)
@@ -703,6 +656,50 @@ public class SearchView extends Div
         }
     }
 
+    private Map<String, Integer> tableStats(Table<String> table)
+    {
+        Map<String, Integer> stats = new HashMap<>();
+
+        if (debug)
+        {
+            int entities = (int) Math.ceil(table.rowCount() * table.columnCount() * 0.277);
+            stats.put("Entities", entities);
+            stats.put("Types", 6869);
+            stats.put("Predicates", 10050);
+            stats.put("Embeddings", 32440283);
+            stats.put("Table rows", table.rowCount());
+            stats.put("Table columns", table.columnCount());
+
+            return stats;
+        }
+
+        try
+        {
+            DataLakeService dl = new DataLakeService(null, null);
+            Response response = dl.tableStats(table.getId());
+
+            if (response.getResponseCode() != 200)
+            {
+                return new HashMap<>();
+            }
+
+            JsonObject json = JsonParser.parseString((String) response.getResponse()).getAsJsonObject();
+            stats.put("Entities", json.get("entities").getAsInt());
+            stats.put("Types", json.get("types").getAsInt());
+            stats.put("Predicates", json.get("predicates").getAsInt());
+            stats.put("Embeddings", json.get("embeddings").getAsInt());
+            stats.put("Table rows", table.rowCount());
+            stats.put("Table columns", table.columnCount());
+
+            return stats;
+        }
+
+        catch (Exception e)
+        {
+            return stats;
+        }
+    }
+
     private Query parseQuery()
     {
         List<List<String>> queryAsList = this.query.stream().map(row -> row.stream()
@@ -713,40 +710,19 @@ public class SearchView extends Div
         return new TableQuery(queryAsTable);
     }
 
-    private Result parseDebugResult()
-    {
-        try (BufferedReader reader = new BufferedReader(new FileReader("first_output.json")))
-        {
-            int c;
-            StringBuilder builder = new StringBuilder();
-
-            while ((c = reader.read()) != -1)
-            {
-                builder.append((char) c);
-            }
-
-            return Result.fromJson(builder.toString());
-        }
-
-        catch (IOException e)
-        {
-            return new Result(0, List.of(), -1.0, -1.0, Map.of());
-        }
-    }
-
     private void refreshResults()
     {
         clearResults();
 
         this.resultComponent = buildResults();
-        this.layout.add(this.resultComponent);
+        add(this.resultComponent);
     }
 
     private void clearResults()
     {
         if (this.resultComponent != null)
         {
-            this.layout.remove(this.resultComponent);
+            remove(this.resultComponent);
             this.resultComponent = null;
         }
     }
@@ -787,21 +763,6 @@ public class SearchView extends Div
         return scroller;
     }
 
-    private Dialog statsDialog()
-    {
-        Dialog dialog = new Dialog("Statistics");
-        VerticalLayout layout = new VerticalLayout();
-        H4 runtime = new H4("Runtime: " + this.result.getRuntime() / 1000000000 + "s"),
-                reduction = new H4("Search space reduction: " + this.result.getReduction() * 100 + "%");
-        layout.add(runtime, reduction);
-        dialog.add(layout);
-
-        Button closeButton = new Button(new Icon("lumo", "cross"), event -> dialog.close());
-        dialog.getHeader().add(closeButton);
-
-        return dialog;
-    }
-
     private Component buildResultsList()
     {
         VerticalLayout layout = new VerticalLayout();
@@ -812,9 +773,6 @@ public class SearchView extends Div
             Table<String> table = resultTable.second();
             H3 tableIdLabel = new H3(table.getId().replace(".json", "") + " (score: " + score + ")");
             HorizontalLayout iconLayout = new HorizontalLayout(new Icon(VaadinIcon.ELLIPSIS_DOTS_V));
-            iconLayout.setWidthFull();
-            iconLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-            iconLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
             Div tableSnippet = new Div(tableSnippet(table), iconLayout);
             tableSnippet.addClickListener(event -> {
@@ -896,6 +854,21 @@ public class SearchView extends Div
         return snippetGrid;
     }
 
+    private Dialog statsDialog()
+    {
+        Dialog dialog = new Dialog("Statistics");
+        VerticalLayout layout = new VerticalLayout();
+        H4 runtime = new H4("Runtime: " + this.result.getRuntime() / 1000000000 + "s"),
+                reduction = new H4("Search space reduction: " + this.result.getReduction() * 100 + "%");
+        layout.add(runtime, reduction);
+        dialog.add(layout);
+
+        Button closeButton = new Button(new Icon("lumo", "cross"), event -> dialog.close());
+        dialog.getHeader().add(closeButton);
+
+        return dialog;
+    }
+
     private static Component resultTableGrid(Table<String> table)
     {
         Grid<List<String>> grid = new Grid<>();
@@ -919,47 +892,59 @@ public class SearchView extends Div
         return anchor;
     }
 
-    private Map<String, Integer> tableStats(Table<String> table)
+    private Set<Pair<String, Integer>> tableContents()
     {
-        Map<String, Integer> stats = new HashMap<>();
+        Set<Pair<String, Integer>> contents = new TreeSet<>(Comparator.comparing(Pair::getFirst));
 
-        if (debug)
+        for (List<StringBuilder> row : this.query)
         {
-            int entities = (int) Math.ceil(table.rowCount() * table.columnCount() * 0.277);
-            stats.put("Entities", entities);
-            stats.put("Types", 6869);
-            stats.put("Predicates", 10050);
-            stats.put("Embeddings", 32440283);
-            stats.put("Table rows", table.rowCount());
-            stats.put("Table columns", table.columnCount());
+            for (StringBuilder cell : row)
+            {
+                String content = cell.toString();
 
-            return stats;
+                if (!content.isEmpty())
+                {
+                    contents.add(new Pair<>(content, count(content)));
+                }
+            }
         }
 
-        try
-        {
-            DataLakeService dl = new DataLakeService(null, null);
-            Response response = dl.tableStats(table.getId());
+        return contents;
+    }
 
-            if (response.getResponseCode() != 200)
+    private Dialog errorDialog(String message)
+    {
+        Dialog errorDialog = new Dialog("Error");
+        VerticalLayout layout = new VerticalLayout();
+        H4 h4Message = new H4(message);
+        layout.add(h4Message);
+        errorDialog.add(layout);
+
+        Button closeButton = new Button(new Icon("lumo", "cross"), event -> errorDialog.close());
+        errorDialog.getHeader().add(closeButton);
+        add(errorDialog);
+
+        return errorDialog;
+    }
+
+    private Result parseDebugResult()
+    {
+        try (BufferedReader reader = new BufferedReader(new FileReader("first_output.json")))
+        {
+            int c;
+            StringBuilder builder = new StringBuilder();
+
+            while ((c = reader.read()) != -1)
             {
-                return new HashMap<>();
+                builder.append((char) c);
             }
 
-            JsonObject json = JsonParser.parseString((String) response.getResponse()).getAsJsonObject();
-            stats.put("Entities", json.get("entities").getAsInt());
-            stats.put("Types", json.get("types").getAsInt());
-            stats.put("Predicates", json.get("predicates").getAsInt());
-            stats.put("Embeddings", json.get("embeddings").getAsInt());
-            stats.put("Table rows", table.rowCount());
-            stats.put("Table columns", table.columnCount());
-
-            return stats;
+            return Result.fromJson(builder.toString());
         }
 
-        catch (Exception e)
+        catch (IOException e)
         {
-            return stats;
+            return new Result(0, List.of(), -1.0, -1.0, Map.of());
         }
     }
 }
