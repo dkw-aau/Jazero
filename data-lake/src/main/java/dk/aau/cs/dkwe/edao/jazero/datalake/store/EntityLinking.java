@@ -75,7 +75,7 @@ public class EntityLinking implements Linker<String, String>, Serializable
     public String mapTo(String cellText)
     {
         if (!cellText.startsWith(this.tableEntityPrefix))
-            throw new IllegalArgumentException("Table cell text does not start with specified table cell prefix");
+            throw new IllegalArgumentException("Table cell text '" + cellText + "' does not start with specified table cell prefix '" + this.tableEntityPrefix + "'");
 
         Id cellId = this.tableCellDict.get(cellText.substring(this.tableEntityPrefix.length()));
 
@@ -99,7 +99,7 @@ public class EntityLinking implements Linker<String, String>, Serializable
     public String mapFrom(String uri)
     {
         if (!uri.startsWith(this.kgEntityPrefix))
-            throw new IllegalArgumentException("Entity URI does not start with specified prefix");
+            throw new IllegalArgumentException("Entity URI '" + uri + "' does not start with specified prefix '" + this.kgEntityPrefix + "'");
 
         Id uriId = this.uriDict.get(uri.substring(this.kgEntityPrefix.length()));
 
@@ -123,7 +123,7 @@ public class EntityLinking implements Linker<String, String>, Serializable
     public void addMapping(String tableCell, String uri)
     {
         if (!tableCell.startsWith(this.tableEntityPrefix) || !uri.startsWith(this.kgEntityPrefix))
-            throw new IllegalArgumentException("Table cell text and/or entity URI do not start with given prefix");
+            throw new IllegalArgumentException("Table cell text ('" + tableCell + "') and/or entity URI ('" + uri + "') do not start with given prefix");
 
         String cellNoPrefix = tableCell.substring(this.tableEntityPrefix.length()),
                 uriNoPrefix = uri.substring(this.kgEntityPrefix.length());
