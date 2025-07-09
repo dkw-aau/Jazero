@@ -326,7 +326,7 @@ public class SearchView extends VerticalLayout
                     textField.setOptions(keywordSearch(content));
                 });
                 textField.addAutocompleteValueAppliedListener(event -> {
-                    String content = event.getValue();
+                    String content = event.getValue().replace(" ", "");
                     int oldContentLength = this.query.get(rowCoordinate).get(columnCoordinate).length();
                     this.query.get(rowCoordinate).get(columnCoordinate).replace(0, oldContentLength, content);
                     updateEntityCounts();
