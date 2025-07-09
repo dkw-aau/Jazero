@@ -52,7 +52,7 @@ public class SearchView extends VerticalLayout
     private final List<List<StringBuilder>> query = new ArrayList<>();
     private final VerticalLayout queryInputLayout = new VerticalLayout();
     private Result result;
-    private static final boolean debug = true;
+    private static final boolean debug = false;
     private static final Random random = new Random();
 
     public SearchView(View error, Main main)
@@ -559,7 +559,10 @@ public class SearchView extends VerticalLayout
                 return new ArrayList<>();
             }
 
-            return (List<String>) res.getResponse();
+            List<String> entities = (List<String>) res.getResponse();
+            entities = entities.stream().map(entity -> entity.replace(" ", "").replace("\"", "")).toList();
+
+            return entities;
         }
 
         catch (Exception e)
