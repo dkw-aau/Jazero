@@ -560,7 +560,7 @@ public class SearchView extends VerticalLayout
             }
 
             List<String> entities = (List<String>) res.getResponse();
-            entities = entities.stream().map(entity -> entity.replace(" ", "").replace("\"", "")).toList();
+            entities = entities.stream().map(entity -> entity.replaceAll("\\s+", "").replace("\"", "")).toList();
 
             return entities;
         }
