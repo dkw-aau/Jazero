@@ -281,7 +281,7 @@ public class SearchView extends VerticalLayout
                 }
             }
 
-            if (!columnItems.isEmpty())
+            if (columnItems.stream().noneMatch(CharSequence::isEmpty))
             {
                 this.query.add(columnItems);
             }
