@@ -21,4 +21,4 @@ ADD src/ src/
 
 RUN mvn package -Pproduction
 
-ENTRYPOINT ["./mvnw_unix", "spring-boot:run"]
+ENTRYPOINT ["./mvnw_unix", "spring-boot:run", "-Pproduction"]
