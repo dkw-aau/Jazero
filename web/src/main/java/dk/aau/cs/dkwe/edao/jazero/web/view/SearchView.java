@@ -404,9 +404,7 @@ public class SearchView extends VerticalLayout
     {
         this.entityCounts.removeAllColumns();
         this.entityCounts.addComponentColumn(item -> {
-            String[] entityTokens = item.getFirst().split("/");
-            VerticalLayout layout = new VerticalLayout();
-            Html entity = new Html("<div><b>Entity</b>" + entityTokens[entityTokens.length - 1] + "</div>"),
+            Html entity = new Html("<div><b>Entity</b>" + item.getFirst() + "</div>"),
                     count = new Html("<div><b>Count</b>" + item.getSecond() + "</div>");
             layout.add(entity, count);
 
@@ -415,7 +413,10 @@ public class SearchView extends VerticalLayout
 
         try
         {
-            this.entityCounts.addColumn(Pair::getFirst).setHeader("Entity");
+            this.entityCounts.addColumn(pair -> {
+                String[] entityTokens = pair.getFirst().split("/");
+                return entityTokens[entityTokens.length - 1];
+            }).setHeader("Entity");
             this.entityCounts.addColumn(Pair::getSecond).setHeader("Count");
             this.entityCounts.setItems(tableContents());
             this.entityCounts.setWidth("600px");
