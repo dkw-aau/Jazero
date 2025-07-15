@@ -31,8 +31,8 @@ public class HNSW implements Index<String, Set<String>>
     private EntityTable entityTable;
     private EntityTableLink entityTableLink;
     private String indexPath;
-    private static final int M = 32;
-    private static final int EF = 400;
+    private static final int M = 24;
+    private static final int EF = 300;
 
     public HNSW(Function<Entity, Embedding> embeddingGenerator, int embeddingsDimension, long capacity, int neighborhoodSize,
                 EntityLinking linker, EntityTable entityTable, EntityTableLink entityTableLink, String indexPath)
