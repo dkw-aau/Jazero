@@ -25,12 +25,14 @@ public class HNSW implements Index<String, Set<String>>
 {
     private transient Function<Entity, Embedding> embeddingGen;
     private com.stepstone.search.hnswlib.jna.Index hnsw;
-    private int embeddingsDim, k;
+    private int embeddingsDim, k, findError = 0;
     private long capacity;
     private EntityLinking linker;
     private EntityTable entityTable;
     private EntityTableLink entityTableLink;
     private String indexPath;
+    private static final int M = 32;
+    private static final int EF = 400;
 
     public HNSW(Function<Entity, Embedding> embeddingGenerator, int embeddingsDimension, long capacity, int neighborhoodSize,
                 EntityLinking linker, EntityTable entityTable, EntityTableLink entityTableLink, String indexPath)
@@ -44,7 +46,7 @@ public class HNSW implements Index<String, Set<String>>
         this.entityTable = entityTable;
         this.entityTableLink = entityTableLink;
         this.indexPath = indexPath;
-        this.hnsw.initialize((int) capacity);
+        this.hnsw.initialize((int) capacity, M, EF, 100);
     }
 
     public void setLinker(EntityLinking linker)
@@ -190,12 +192,21 @@ public class HNSW implements Index<String, Set<String>>
                 tables.addAll(this.entityTableLink.find(new Id(resultId)));
             }
 
+            this.findError = 0;
             return tables;
         }
 
         catch (QueryCannotReturnResultsException e)
         {
             this.hnsw.setEf(this.hnsw.getEf() * 2);
+            this.findError++;
+
+            if (this.findError > 10)
+            {
+                this.findError = 0;
+                return Collections.emptySet();
+            }
+
             return find(key);
         }
     }
