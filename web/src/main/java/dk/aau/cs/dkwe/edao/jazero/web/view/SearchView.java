@@ -449,7 +449,7 @@ public class SearchView extends VerticalLayout
         topKField.setStepButtonsVisible(true);
         leftColumnLayout.add(entitySimilarities, topKField);
 
-        Checkbox prefilterBox = new Checkbox("Pre-filter", false);
+        Checkbox prefilterBox = new Checkbox("Pre-filter (recommended)", true);
         VerticalLayout rightColumnLayout = new VerticalLayout();
         Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
                 prefilterBox.getValue()));
