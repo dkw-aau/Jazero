@@ -111,7 +111,7 @@ public class DataLakeService extends Service implements DataLake
             body.add("single-column-per-query-entity", new JsonPrimitive("true"));
             body.add("use-max-similarity-per-column", new JsonPrimitive("true"));
             body.add("weighted-jaccard", new JsonPrimitive("true"));
-            body.add("pre-filter", new JsonPrimitive(prefilter));
+            body.add("pre-filter", prefilter ? new JsonPrimitive("HNSW") : new JsonPrimitive("NONE"));
             body.add("query-time", new JsonPrimitive(queryWait));
             body.add("query", new JsonPrimitive(new String(queryBuffer)));
             body.add("cosine-function", new JsonPrimitive(switch (entitySimilarity) {
