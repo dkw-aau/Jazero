@@ -532,18 +532,37 @@ response table_stats(const char *ip, user u, const char *table_id)
     jdlc request;
     struct properties headers = init_params_search();
     struct address addr = init_addr(ip, DL_PORT, "/table-stats");
+    char *body = (char *) malloc(1000);
     prop_insert(&headers, "username", u.username, strlen(u.username));
     prop_insert(&headers, "password", u.password, strlen(u.password));
     prop_insert(&headers, "table", table_id, strlen(table_id));
 
-    if (!init(&request, COUNT, addr, headers, NULL))
+    if (body == NULL)
     {
+        addr_clear(addr);
+        prop_clear(&headers);
+        return (response) {.status = JAZERO_ERROR, .msg = "Ran out of memory"};
+    }
+
+    table_stats_body(body, table_id);
+
+    char *body_copy = (char *) realloc(body, strlen(body));
+
+    if (body_copy != NULL)
+    {
+        body = body_copy;
+    }
+
+    if (!init(&request, COUNT, addr, headers, body))
+    {
+        free(body);
         prop_clear(&headers);
         addr_clear(addr);
         return (response) {.status = JAZERO_ERROR, .msg = "Could not initialize Jazero TABLESTATS request"};
     }
 
     response res = perform(request);
+    free(body);
     addr_clear(addr);
     prop_clear(&headers);
 

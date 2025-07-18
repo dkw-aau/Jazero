@@ -47,3 +47,9 @@ const char *remove_user_body(char *buffer, const char *username)
     sprintf(buffer, "{\"old-username\": \"%s\"}", username);
     return buffer;
 }
+
+const char *table_stats_body(char *buffer, const char *table)
+{
+    sprintf(buffer, "{\"table\": \"%s\"}", table);
+    return buffer;
+}
