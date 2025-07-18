@@ -655,7 +655,7 @@ public class SearchView extends VerticalLayout
 
     private Map<String, Integer> tableStats(Table<String> table)
     {
-        Map<String, Integer> stats = new HashMap<>();
+        Map<String, Integer> stats = new TreeMap<>();
 
         if (debug)
         {
@@ -677,7 +677,7 @@ public class SearchView extends VerticalLayout
 
             if (response.getResponseCode() != 200)
             {
-                return new HashMap<>();
+                return new TreeMap<>();
             }
 
             JsonObject json = JsonParser.parseString((String) response.getResponse()).getAsJsonObject();
