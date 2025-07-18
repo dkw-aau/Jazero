@@ -1080,7 +1080,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             {
                 types += entity.getTypes().size();
                 predicates += entity.getPredicates().size();
-                embeddings += entity.getEmbedding().getDimension() > 0 ? 1 : 0;
+                embeddings += entity.getEmbedding() != null ? 1 : 0;
             }
         }
 
