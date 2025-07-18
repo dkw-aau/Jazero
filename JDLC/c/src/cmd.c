@@ -37,7 +37,7 @@
                 "\nremoveuser\n" \
                 "-ou, --oldusername : Username of user to remove\n" \
                 "\ncount\n" \
-                "-n, --count : URI of entity to retrieve count of in data lake tables" \
+                "-n, --count : URI of entity to retrieve count of in data lake tables\n" \
                 "\ntablestats\n" \
                 "-r, --table : Table file ID to retrieve stats for" \
 

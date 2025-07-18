@@ -553,7 +553,7 @@ response table_stats(const char *ip, user u, const char *table_id)
         body = body_copy;
     }
 
-    if (!init(&request, COUNT, addr, headers, body))
+    if (!init(&request, TABLE_STATS, addr, headers, body))
     {
         free(body);
         prop_clear(&headers);
