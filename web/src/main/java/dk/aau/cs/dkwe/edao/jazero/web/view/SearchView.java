@@ -19,6 +19,7 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.internal.Pair;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import dk.aau.cs.dkwe.edao.connector.DataLakeService;
 import dk.aau.cs.dkwe.edao.jazero.communication.Response;
@@ -42,11 +43,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Route(value = "")
+@VaadinSessionScope
 public class SearchView extends VerticalLayout
 {
     private final Main main;
+    private String dataLake = null, dataLakeIp;
+    private User user = null;
     private Component header, selectDL, searchBar, statsComponent, resultComponent = null;
-    private String dataLake = null;
     private Map<String, Integer> stats = null;
     private final Grid<Pair<String, Integer>> entityCounts = new Grid<>();
     private final List<List<StringBuilder>> query = new ArrayList<>();
@@ -67,7 +70,7 @@ public class SearchView extends VerticalLayout
         this.main = main;
     }
 
-    private void loadDLStatistics(String ip, User user)
+    private void loadDLStatistics()
     {
         this.stats = new HashMap<>();
 
@@ -85,7 +88,7 @@ public class SearchView extends VerticalLayout
 
         try
         {
-            DataLakeService dl = new DataLakeService(ip, user);
+            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
             Response response = dl.stats();
 
             if (response.getResponseCode() != 200)
@@ -145,10 +148,9 @@ public class SearchView extends VerticalLayout
         dataLakes.addValueChangeListener(event -> {
             this.dataLake = dataLakes.getValue();
             this.searchBar.setVisible(true);
-            String ip = ConfigReader.getIp(this.dataLake),
-                    username = ConfigReader.getUsername(this.dataLake),
-                    password = ConfigReader.getPassword(this.dataLake);
-            loadDLStatistics(ip, new User(username, password, true));
+            this.dataLakeIp = ConfigReader.getIp(this.dataLake);
+            this.user = new User(ConfigReader.getUsername(this.dataLake), ConfigReader.getPassword(this.dataLake), false);
+            loadDLStatistics();
             this.statsComponent.setVisible(true);
         });
         this.statsComponent = new Button(new Icon(VaadinIcon.INFO_CIRCLE), statsEvent -> {
@@ -464,11 +466,6 @@ public class SearchView extends VerticalLayout
 
     private List<String> keywordSearch(String query)
     {
-        String dataLakeIp = ConfigReader.getIp(this.dataLake),
-                username = ConfigReader.getUsername(this.dataLake),
-                password = ConfigReader.getPassword(this.dataLake);
-        User user = new User(username, password, true);
-
         try
         {
             if (debug)
@@ -554,7 +551,7 @@ public class SearchView extends VerticalLayout
                 return List.of();
             }
 
-            DataLakeService dl = new DataLakeService(dataLakeIp, user);
+            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
             Response res = dl.keywordSearch(query);
 
             if (res.getResponseCode() != 200)
@@ -594,9 +591,7 @@ public class SearchView extends VerticalLayout
             return -1;
         }
 
-        String dlHost = ConfigReader.getIp(this.dataLake), username = ConfigReader.getUsername(this.dataLake),
-                password = ConfigReader.getPassword(this.dataLake);
-        DataLakeService dl = new DataLakeService(dlHost, new User(username, password, true));
+        DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
         return Integer.parseInt((String) dl.count(entity).getResponse());
     }
 
@@ -607,10 +602,6 @@ public class SearchView extends VerticalLayout
             return;
         }
 
-        String dataLakeIp = ConfigReader.getIp(this.dataLake),
-                username = ConfigReader.getUsername(this.dataLake),
-                password = ConfigReader.getPassword(this.dataLake);
-        User user = new User(username, password, true);
         TableSearch.EntitySimilarity similarity;
         Query query = parseQuery();
 
@@ -643,7 +634,7 @@ public class SearchView extends VerticalLayout
                 return;
             }
 
-            DataLakeService dl = new DataLakeService(dataLakeIp, user);
+            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
             Response pingResponse = dl.ping();
 
             if (pingResponse.getResponseCode() != 200)
@@ -681,7 +672,7 @@ public class SearchView extends VerticalLayout
 
         try
         {
-            DataLakeService dl = new DataLakeService(null, null);
+            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
             Response response = dl.tableStats(table.getId());
 
             if (response.getResponseCode() != 200)
