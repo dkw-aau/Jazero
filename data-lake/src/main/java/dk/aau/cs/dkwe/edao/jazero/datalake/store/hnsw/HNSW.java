@@ -192,6 +192,20 @@ public class HNSW implements Index<String, Set<String>>
                 tables.addAll(this.entityTableLink.find(new Id(resultId)));
             }
 
+            if (tables.isEmpty())
+            {
+                this.hnsw.setEf(this.hnsw.getEf() * 2);
+                this.findError++;
+
+                if (this.findError > 10)
+                {
+                    this.findError = 0;
+                    return tables;
+                }
+
+                return find(key);
+            }
+
             this.findError = 0;
             return tables;
         }
