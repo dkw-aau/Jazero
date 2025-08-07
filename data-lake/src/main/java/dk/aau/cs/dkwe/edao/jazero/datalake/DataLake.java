@@ -13,9 +13,11 @@ import dk.aau.cs.dkwe.edao.jazero.datalake.loader.IndexWriter;
 import dk.aau.cs.dkwe.edao.jazero.datalake.loader.progressive.PriorityScheduler;
 import dk.aau.cs.dkwe.edao.jazero.datalake.loader.progressive.ProgressiveIndexWriter;
 import dk.aau.cs.dkwe.edao.jazero.datalake.parser.EmbeddingsParser;
-import dk.aau.cs.dkwe.edao.jazero.datalake.search.Prefilter;
-import dk.aau.cs.dkwe.edao.jazero.datalake.search.Result;
-import dk.aau.cs.dkwe.edao.jazero.datalake.search.TableSearch;
+import dk.aau.cs.dkwe.edao.jazero.datalake.search.*;
+import dk.aau.cs.dkwe.edao.jazero.datalake.search.similarity.EmbeddingsSimilarity;
+import dk.aau.cs.dkwe.edao.jazero.datalake.search.similarity.EntitySimilarity;
+import dk.aau.cs.dkwe.edao.jazero.datalake.search.similarity.PredicatesSimilarity;
+import dk.aau.cs.dkwe.edao.jazero.datalake.search.similarity.TypesSimilarity;
 import dk.aau.cs.dkwe.edao.jazero.datalake.store.EntityLinking;
 import dk.aau.cs.dkwe.edao.jazero.datalake.store.EntityTable;
 import dk.aau.cs.dkwe.edao.jazero.datalake.store.EntityTableLink;
@@ -159,6 +161,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
      *                  "entity-similarity": "TYPES|PREDICATES|EMBEDDINGS",
      *                  "single-column-per-query-entity": "<BOOLEAN VALUE>",
      *                  "use-max-similarity-per-column": "<BOOLEAN VALUE>",
+     *                  "similarity-measure": "",
      *                  ["weighted-jaccard": "<BOOLEAN VALUE>,]
      *                  ["cosine-function": "NORM_COS|ABS_COS|ANG_COS",]
      *                  ["pre-filter": "HNSW|NONE",]
@@ -173,6 +176,10 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
     @PostMapping(value = "/search")
     public ResponseEntity<String> search(@RequestHeader Map<String, String> headers, @RequestBody Map<String, String> body) throws InterruptedException
     {
+        Set<String> missingKeys = new HashSet<>(Set.of("top-k", "entity-similarity", "single-column-per-query-entity",
+                "use-max-similarity-per-column", "similarity-measure", "query"));
+        missingKeys.removeAll(body.keySet());
+
         if (authenticateUser(headers) == Authenticator.Auth.NOT_AUTH)
         {
             return ResponseEntity.badRequest().body("User could not be authenticated");
@@ -188,34 +195,9 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             return ResponseEntity.badRequest().body("Content-Type header must be " + MediaType.APPLICATION_JSON);
         }
 
-        else if (!body.containsKey("query"))
+        else if (!missingKeys.isEmpty())
         {
-            return ResponseEntity.badRequest().body("Missing 'query' in JSON body");
-        }
-
-        else if (!body.containsKey("top-k"))
-        {
-            return ResponseEntity.badRequest().body("Missing 'Top-K' in JSON body");
-        }
-
-        else if (!body.containsKey("entity-similarity"))
-        {
-            return ResponseEntity.badRequest().body("Missing 'entity-similarity' in JSON body");
-        }
-
-        else if (!body.containsKey("single-column-per-query-entity"))
-        {
-            return ResponseEntity.badRequest().body("Missing 'single-column-per-query-entity' in JSON body");
-        }
-
-        else if (!body.containsKey("use-max-similarity-per-column"))
-        {
-            return ResponseEntity.badRequest().body("Missing 'use-max-similarity-per-column' in JSON body");
-        }
-
-        else if (!body.containsKey("similarity-measure"))
-        {
-            return ResponseEntity.badRequest().body("Missing 'similarity-measure' in JSON body");
+            return ResponseEntity.badRequest().body("Missing " + missingKeys + " in JSON body");
         }
 
         int topK = Integer.parseInt(body.get("top-k"));
@@ -223,56 +205,34 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         boolean useMaxSimilarityPerColumn = Boolean.parseBoolean(body.get("use-max-similarity-per-column"));
         boolean weightedJaccard = false;
         int queryTime = Integer.parseInt(body.getOrDefault("query-time", "0"));
-        String entitySimStr = body.get("entity-similarity");
-        TableSearch.SimilarityMeasure similarityMeasure = TableSearch.SimilarityMeasure.valueOf(body.get("similarity-measure"));
+        SemanticScore.SimilarityMeasure similarityMeasure = SemanticScore.SimilarityMeasure.valueOf(body.get("similarity-measure"));
         Prefilter prefilter = null;
-        TableSearch.EntitySimilarity entitySimilarity;
-
-        if (entitySimStr.equals("EMBEDDINGS"))
+        EntitySimilarity entitySimilarity = switch (body.get("entity-similarity"))
         {
-            if (!body.containsKey("cosine-function"))
-            {
-                return ResponseEntity.badRequest().body("Missing cosine similarity function when searching using embeddings");
-            }
+            case "EMBEDDINGS":
+                EmbeddingsSimilarity.CosineType cosine = switch (body.get("cosine-function"))
+                {
+                    case "NORM_COS": yield EmbeddingsSimilarity.CosineType.NORM;
+                    case "ABS_COS": yield EmbeddingsSimilarity.CosineType.ABSOLUTE;
+                    case "ANG_COS": yield EmbeddingsSimilarity.CosineType.ANGULAR;
+                    default: yield null;
+                };
+                yield new EmbeddingsSimilarity(cosine, linker, entityTable);
 
-            String cosFunction = body.get("cosine-function");
+            case "TYPES":
+                boolean weighted = Boolean.parseBoolean(body.getOrDefault("weighted-jaccard", "false"));
+                yield new TypesSimilarity(weighted, linker, entityTable);
 
-            if (cosFunction.contains("NORM_COS"))
-            {
-                entitySimilarity = TableSearch.EntitySimilarity.EMBEDDINGS_NORM;
-            }
+            case "PREDICATES":
+                yield new PredicatesSimilarity(linker, entityTable);
 
-            else if (cosFunction.contains("ABS_COS"))
-            {
-                entitySimilarity = TableSearch.EntitySimilarity.EMBEDDINGS_ABS;
-            }
+            default:
+                yield null;
+        };
 
-            else if (cosFunction.contains("ANG_COS"))
-            {
-                entitySimilarity = TableSearch.EntitySimilarity.EMBEDDINGS_ANG;
-            }
-
-            else
-            {
-                return ResponseEntity.badRequest().body("Did not understand cosine function ' " + cosFunction + "'");
-            }
-        }
-
-        else
+        if (entitySimilarity == null)
         {
-            if (!body.containsKey("weighted-jaccard"))
-            {
-                return ResponseEntity.badRequest().body("Missing 'weighted-jaccard' when searching using entity types or predicates");
-            }
-
-            weightedJaccard = Boolean.parseBoolean(body.get("weighted-jaccard"));
-            entitySimilarity = entitySimStr.equals("TYPES") ? TableSearch.EntitySimilarity.JACCARD_TYPES
-                    : entitySimStr.equals("PREDICATES") ? TableSearch.EntitySimilarity.JACCARD_PREDICATES : null;
-
-            if (entitySimilarity == null)
-            {
-                return ResponseEntity.badRequest().body("Did not understand entity similarity metric '" + entitySimStr + "'");
-            }
+            return ResponseEntity.badRequest().body("Value of 'entity-similarity' not recognized");
         }
 
         if (body.containsKey("pre-filter"))
@@ -281,7 +241,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
 
             if (prefilterType.equals("HNSW"))
             {
-                prefilter = new Prefilter(linker, entityTable, tableLink, hnsw);
+                prefilter = new Prefilter(hnsw);
             }
         }
 
@@ -297,6 +257,8 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         StorageHandler storageHandler = new StorageHandler(Configuration.getStorageType());
         KGService kgService = new KGService(Configuration.getEKGManagerHost(), Configuration.getEKGManagerPort());
         DBDriverBatch<List<Double>, String> embeddingsDB = EmbeddingsFactory.fromConfig(false);
+        Ranker ranker = new SemanticScore(linker, entityTable, tableLink, singleColumnPerEntity, false,
+                useMaxSimilarityPerColumn, similarityMeasure, entitySimilarity);
         TableSearch search;
 
         while (queryIterator.hasNext())
@@ -307,14 +269,12 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
 
         if (prefilter != null)
         {
-            search = new TableSearch(storageHandler, linker, entityTable, tableLink, topK, THREADS, entitySimilarity,
-                    singleColumnPerEntity, weightedJaccard, useMaxSimilarityPerColumn, false, similarityMeasure, prefilter);
+            search = new TableSearch(storageHandler, ranker, topK, THREADS, prefilter);
         }
 
         else
         {
-            search = new TableSearch(storageHandler, linker, entityTable, tableLink, topK, THREADS, entitySimilarity,
-                    singleColumnPerEntity, weightedJaccard, useMaxSimilarityPerColumn, false, similarityMeasure);
+            search = new TableSearch(storageHandler, ranker, topK, THREADS);
         }
 
         Result result = search.search(query);

@@ -25,21 +25,14 @@ public class Prefilter extends AbstractSearch
     private static final int SPLITS_SIZE = 3;
     private static final int MIN_EXISTS_IN = 2;
 
-    private Prefilter(EntityLinking linker, EntityTable entityTable, EntityTableLink entityTableLink)
+    public Prefilter(LSHIndex<String, String> lshIndex)
     {
-        super(linker, entityTable, entityTableLink);
-    }
-
-    public Prefilter(EntityLinking linker, EntityTable entityTable, EntityTableLink entityTableLink, LSHIndex<String, String> lshIndex)
-    {
-        this(linker, entityTable, entityTableLink);
         this.lsh = lshIndex;
         this.hnsw = null;
     }
 
-    public Prefilter(EntityLinking linker, EntityTable entityTable, EntityTableLink entityTableLink, HNSW hnsw)
+    public Prefilter(HNSW hnsw)
     {
-        this(linker, entityTable, entityTableLink);
         this.hnsw = hnsw;
         this.lsh = null;
     }
