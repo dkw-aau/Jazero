@@ -203,7 +203,6 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         int topK = Integer.parseInt(body.get("top-k"));
         boolean singleColumnPerEntity = Boolean.parseBoolean(body.get("single-column-per-query-entity"));
         boolean useMaxSimilarityPerColumn = Boolean.parseBoolean(body.get("use-max-similarity-per-column"));
-        boolean weightedJaccard = false;
         int queryTime = Integer.parseInt(body.getOrDefault("query-time", "0"));
         SemanticScore.SimilarityMeasure similarityMeasure = SemanticScore.SimilarityMeasure.valueOf(body.get("similarity-measure"));
         Prefilter prefilter = null;
@@ -350,6 +349,8 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
     {
         final String dirKey = "directory", tablePrefixKey = "table-prefix", kgPrefixKey = "kg-prefix";
         File indexDir = new File(Configuration.getKGDir());
+        Set<String> missingKeys = new HashSet<>(Set.of("directory", "table-prefix", "kg-prefix"));
+        missingKeys.removeAll(body.keySet());
 
         if (!indexDir.isDirectory())
         {
@@ -383,19 +384,9 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
                     "' or '" + StorageHandler.StorageType.HDFS.name() + "'");
         }
 
-        else if (!body.containsKey(dirKey))
+        else if (!missingKeys.isEmpty())
         {
-            return ResponseEntity.badRequest().body("Body must be a JSON string containing a single entry '" + dirKey + "'");
-        }
-
-        else if (!body.containsKey(tablePrefixKey))
-        {
-            return ResponseEntity.badRequest().body("Missing table entity prefix '" + tablePrefixKey + "' in JSON string");
-        }
-
-        else if (!body.containsKey(kgPrefixKey))
-        {
-            return ResponseEntity.badRequest().body("Missing table entity prefix '" + kgPrefixKey + "' in JSON string");
+            return ResponseEntity.badRequest().body("Missing " + missingKeys + " in JSON body");
         }
 
         boolean isProgressive = Boolean.parseBoolean(body.getOrDefault("progressive", "false"));
@@ -535,6 +526,9 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
     @PostMapping(value = "/embeddings")
     public synchronized ResponseEntity<String> loadEmbeddings(@RequestHeader Map<String, String> headers, @RequestBody Map<String, String> body)
     {
+        Set<String> missingKeys = new HashSet<>(Set.of("file", "delimiter"));
+        missingKeys.removeAll(body.keySet());
+
         if (authenticateUser(headers) != Authenticator.Auth.WRITE)
         {
             return ResponseEntity.badRequest().body("User does not have write privileges");
@@ -545,14 +539,9 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             return ResponseEntity.badRequest().body("Content-Type header must be " + MediaType.APPLICATION_JSON);
         }
 
-        else if (!body.containsKey("file"))
+        else if (!missingKeys.isEmpty())
         {
-            return ResponseEntity.badRequest().body("Missing 'file' entry in JSON body of POST request");
-        }
-
-        else if (!body.containsKey("delimiter"))
-        {
-            return ResponseEntity.badRequest().body("Delimiter character has not been specified for embeddings file");
+            return ResponseEntity.badRequest().body("Missing " + missingKeys + " in JSON body");
         }
 
         Configuration.setDBHost("127.0.0.1");
