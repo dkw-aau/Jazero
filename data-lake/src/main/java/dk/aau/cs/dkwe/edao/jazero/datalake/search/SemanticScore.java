@@ -168,13 +168,13 @@ public class SemanticScore extends ScoreBase implements Ranker
         {
             int rowSize = query.getRow(row).size();
             List<List<Double>> queryRowScores = new ArrayList<>(rowSize);
-            entityToColumnScore.add(new ArrayList<>(rowSize));
 
             for (int rowEntity = 0; rowEntity < rowSize; rowEntity++)
             {
                 queryRowScores.add(new ArrayList<>(Collections.nCopies(table.columnCount(), 0.0)));
-                entityToColumnScore.add(queryRowScores);
             }
+
+            entityToColumnScore.add(queryRowScores);
         }
 
         for (int tableRow = 0; tableRow < tableRows; tableRow++)
