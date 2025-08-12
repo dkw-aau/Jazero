@@ -1,12 +1,7 @@
 package dk.aau.cs.dkwe.edao.jazero.datalake.search;
 
 import dk.aau.cs.dkwe.edao.jazero.datalake.loader.Stats;
-import dk.aau.cs.dkwe.edao.jazero.datalake.similarity.JaccardSimilarity;
-import dk.aau.cs.dkwe.edao.jazero.datalake.structures.Embedding;
-import dk.aau.cs.dkwe.edao.jazero.datalake.structures.Id;
 import dk.aau.cs.dkwe.edao.jazero.datalake.structures.Pair;
-import dk.aau.cs.dkwe.edao.jazero.datalake.structures.graph.Entity;
-import dk.aau.cs.dkwe.edao.jazero.datalake.structures.graph.Type;
 import dk.aau.cs.dkwe.edao.jazero.datalake.structures.table.Table;
 import dk.aau.cs.dkwe.edao.jazero.datalake.system.Logger;
 import dk.aau.cs.dkwe.edao.jazero.storagelayer.StorageHandler;
@@ -14,7 +9,6 @@ import dk.aau.cs.dkwe.edao.jazero.storagelayer.StorageHandler;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 public class TableSearch extends AbstractSearch
 {

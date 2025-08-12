@@ -71,40 +71,17 @@ public class SemanticScore extends ScoreBase implements Ranker
     {
         Table<String> table = TableParser.parse(tableFile);
         Stats.StatBuilder statBuilder = Stats.build();
-        List<List<Integer>> queryRowToColumnMappings = new ArrayList<>();  // If each query entity needs to map to only one column find the best mapping
 
         if (table == null)
         {
             return null;
         }
 
-        if (this.singleColumnPerQueryEntity)
-        {
-            queryRowToColumnMappings = getQueryToColumnMapping(query, table);
-            List<List<String>> queryRowToColumnNames = new ArrayList<>(); // Log in the `statisticsMap` the column names aligned with each query row
-
-            for (int queryRow = 0; queryRow < queryRowToColumnMappings.size(); queryRow++)
-            {
-                queryRowToColumnNames.add(new ArrayList<>());
-
-                for (int entityId = 0; entityId < queryRowToColumnMappings.get(queryRow).size(); entityId++)
-                {
-                    int alignedColNum = queryRowToColumnMappings.get(queryRow).get(entityId);
-
-                    if ((table.getColumnLabels().length > alignedColNum) && (alignedColNum >= 0))    // Ensure that `table` has headers that we can index them
-                    {
-                        queryRowToColumnNames.get(queryRow).add(table.getColumnLabels()[alignedColNum]);
-                    }
-                }
-            }
-
-            statBuilder.tupleQueryAlignment(queryRowToColumnNames);
-        }
-
         int numEntityMappedRows = 0;    // Number of rows in a table that have at least one cell mapping ot a known entity
         int queryRowsCount = query.rowCount();
         Table<List<Double>> scores = new DynamicTable<>();  // Each cell is a score of the corresponding query cell to the mapped cell in each table row
         int rows = table.rowCount();
+        List<List<Integer>> queryRowToColumnMappings = this.singleColumnPerQueryEntity ? getQueryToColumnMapping(query, table) : new ArrayList<>();
 
         for (int queryRowCounter = 0; queryRowCounter < queryRowsCount; queryRowCounter++)
         {
@@ -184,17 +161,19 @@ public class SemanticScore extends ScoreBase implements Ranker
      */
     private List<List<Integer>> getQueryToColumnMapping(Table<String> query, Table<String> table)
     {
-        List<List<List<Double>>> entityToColumnScore = new ArrayList<>();
         int tableRows = table.rowCount(), queryRows = query.rowCount();
+        List<List<List<Double>>> entityToColumnScore = new ArrayList<>(tableRows);
 
         for (int row = 0; row < queryRows; row++)
         {
             int rowSize = query.getRow(row).size();
+            List<List<Double>> queryRowScores = new ArrayList<>(rowSize);
             entityToColumnScore.add(new ArrayList<>(rowSize));
 
             for (int rowEntity = 0; rowEntity < rowSize; rowEntity++)
             {
-                entityToColumnScore.get(row).add(new ArrayList<>(Collections.nCopies(table.columnCount(), 0.0)));
+                queryRowScores.add(new ArrayList<>(Collections.nCopies(table.columnCount(), 0.0)));
+                entityToColumnScore.add(queryRowScores);
             }
         }
 
@@ -211,7 +190,9 @@ public class SemanticScore extends ScoreBase implements Ranker
                 {
                     for (int queryRow = 0; queryRow < queryRows; queryRow++)    // Loop over each query tuple and each entity in a tuple and compute a score between the query entity and 'curEntity'
                     {
-                        for (int queryEntityCounter = 0; queryEntityCounter < query.getRow(queryRow).size(); queryEntityCounter++)
+                        int queryRowCells = query.getRow(queryRow).size();
+
+                        for (int queryEntityCounter = 0; queryEntityCounter < queryRowCells; queryEntityCounter++)
                         {
                             String queryEntity = query.getRow(queryRow).get(queryEntityCounter);
                             double score = this.entitySimilarity.similarity(queryEntity, curEntity);
@@ -360,7 +341,6 @@ public class SemanticScore extends ScoreBase implements Ranker
     private Double aggregateTableSimilarities(Table<String> query, Table<List<Double>> scores, Stats.StatBuilder statBuilder)
     {
         // Compute the weighted vector (i.e. considers IDF scores of query entities) for each query tuple
-        // TODO: Compute this once when initializing the class
         Map<Integer, List<Double>> queryRowToWeightVector = new HashMap<>();
         int queryRows = query.rowCount();
 
