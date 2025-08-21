@@ -156,11 +156,21 @@ class Connector:
     
     def table_stats(self, table_id):
         headers = {'username': self.__username, 'password': self.__password}
-        body = "{\"table\": \"table_id\"}"
+        body = "{\"table\": \"" + table_id + "\"}"
         req = requests.post(self.__host + ':' + str(self.__sdlPort) + '/table-stats', json = json.loads(body), headers = headers)
         
         if (req.status_code != 200):
             return 'Failed retrieving index stats for table \'' + table_id + '\': ' + req.text
+        
+        return req.text
+    
+    def remove_table(self, table_id):
+        headers = {'username': self.__username, 'password': self.__password}
+        body = "{\"table\": \"" + table_id + "\"}"
+        req = requests.post(self.__host + ':' + str(self.__sdlPort) + '/remove-table', json = json.loads(body), headers = headers)
+
+        if (req.status_code != 200):
+            return 'Failed removing table \'' + table_id + '\': ' + req.text
         
         return req.text
 
@@ -197,7 +207,7 @@ class Connector:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('JDLC Connector')
     parser.add_argument('--host', metavar = 'Host', type = str, help = 'Host of machine on which Jazero is deployed', required = True)
-    parser.add_argument('-o', '--operation', metavar = 'Op', type = str, help = 'Jazero operation to perform (ping, search, keyword, insert, loadembeddings, clear, clearembeddings, count, stats)', choices = ['ping', 'search', 'keyword', 'insert', 'loadembeddings', 'clear', 'clearembeddings', 'count', 'stats'], required = True)
+    parser.add_argument('-o', '--operation', metavar = 'Op', type = str, help = 'Jazero operation to perform (ping, search, keyword, insert, loadembeddings, clear, clearembeddings, count, stats, removetable)', choices = ['ping', 'search', 'keyword', 'insert', 'loadembeddings', 'clear', 'clearembeddings', 'count', 'stats', 'removetable'], required = True)
     parser.add_argument('-u', '--username', metavar = 'Username', type = str, help = 'Username of user', required = True)
     parser.add_argument('-c', '--password', metavar = 'Password', type = str, help = 'Password for user', required = True)
     parser.add_argument('-q', '--query', metavar = 'Query', type = str, help = 'Query file path', required = False)
@@ -215,6 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('-pf', '--prefilter', metavar = 'Prefilter', type = str, help = 'Apply HNSW pre-filtering (\'TRUE\', \'FALSE\')', required = False, default = 'FALSE')
     parser.add_argument('-prog', '--progressive', metavar = 'Progressive', type = str, help = 'Flag for progressive indexing (\'TRUE\', \'FALSE\')', required = False, default = "FALSE")
     parser.add_argument('-n', '--count', metavar = 'Count', type = str, help = 'URI of entity to retrieve count for', required = False)
+    parser.add_argument('-t', '--table_id', metavar = 'Table', type = str, help = 'ID of table to remove', required = False)
 
     args = parser.parse_args()
     host = args.host
@@ -313,5 +324,9 @@ if __name__ == '__main__':
     
     elif (op == 'stats'):
         output = conn.stats()
+
+    elif (op == 'removetable'):
+        table_id = args.table_id
+        output = conn.remove_table(table_id)
 
     print(output)
