@@ -23,7 +23,6 @@ import dk.aau.cs.dkwe.edao.jazero.datalake.structures.table.Table;
 import dk.aau.cs.dkwe.edao.jazero.datalake.system.Configuration;
 import dk.aau.cs.dkwe.edao.jazero.datalake.system.FileLogger;
 import dk.aau.cs.dkwe.edao.jazero.datalake.system.Logger;
-import dk.aau.cs.dkwe.edao.jazero.datalake.tables.JsonTable;
 import dk.aau.cs.dkwe.edao.jazero.datalake.utilities.Utils;
 import dk.aau.cs.dkwe.edao.jazero.storagelayer.StorageHandler;
 import org.apache.commons.io.FilenameUtils;
@@ -269,25 +268,30 @@ public class IndexWriter implements IndexIO
 
     private boolean load(Path tablePath)
     {
-        JsonTable table = parseTable(tablePath);
+        Table<String> table = TableParser.parse(tablePath.toFile());
 
-        if (table == null ||  table._id == null || table.rows == null)
+        if (table == null)
+        {
+            String message = "Parsing '" + tablePath + "' failed";
+            FileLogger.log(FileLogger.Service.SDL_Manager, message);
+            Logger.log(Logger.Level.ERROR, message);
             return false;
+        }
 
         String tableName = tablePath.getFileName().toString();
         Map<Pair<Integer, Integer>, List<String>> entityMatches = new HashMap<>();  // Maps a cell specified by RowNumber, ColumnNumber to the list of entities it matches to
         Table<String> inputEntities = new DynamicTable<>();
-        int row = 0;
+        int rows = table.rowCount();
 
-        for (List<JsonTable.TableCell> tableRow : table.rows)
+        for (int row = 0; row < rows; row++)
         {
             int column = 0;
             Set<PairNonComparable<String, Pair<Integer, Integer>>> rowEntities = new HashSet<>();
+            Table.Row<String> record = table.getRow(row);
 
-            for (JsonTable.TableCell cell : tableRow)
+            for (String cell : record)
             {
-                String cellText = cell.text;
-                rowEntities.add(new PairNonComparable<>(cellText, new Pair<>(row, column)));
+                rowEntities.add(new PairNonComparable<>(cell, new Pair<>(row, column)));
                 column++;
             }
 
@@ -296,7 +300,6 @@ public class IndexWriter implements IndexIO
             linkedRow.sort(Comparator.comparingInt(e -> e.getKey().second()));
             inputEntities.addRow(new Table.Row<>(linkedRow.stream().map(e -> e.getValue().get(0)).collect(Collectors.toList())));
             entityMatches.putAll(linking);
-            row++;
         }
 
         synchronized (this.lock)
@@ -308,33 +311,17 @@ public class IndexWriter implements IndexIO
         return true;
     }
 
-    private static JsonTable parseTable(Path tablePath)
+    private void saveStats(Table<String> table, String tableFileName, Iterator<String> entities, Map<Pair<Integer, Integer>, List<String>> entityMatches)
     {
-        try
-        {
-            return TableParser.parse(tablePath);
-        }
-
-        catch (ParsingException e)
-        {
-            FileLogger.log(FileLogger.Service.SDL_Manager, e.getMessage());
-            Logger.log(Logger.Level.ERROR, e.getMessage());
-            return null;
-        }
-    }
-
-    private void saveStats(JsonTable jTable, String tableFileName, Iterator<String> entities, Map<Pair<Integer, Integer>, List<String>> entityMatches)
-    {
-        Stats stats = collectStats(jTable, tableFileName, entities, entityMatches);
+        Stats stats = collectStats(table, tableFileName, entities, entityMatches);
         this.tableStats.put(tableFileName, stats);
     }
 
-    private Stats collectStats(JsonTable jTable, String tableFileName, Iterator<String> entities, Map<Pair<Integer, Integer>, List<String>> entityMatches)
+    private Stats collectStats(Table<String> table, String tableFileName, Iterator<String> entities, Map<Pair<Integer, Integer>, List<String>> entityMatches)
     {
-        List<Integer> numEntitiesPerRow = new ArrayList<>(Collections.nCopies(jTable.numDataRows, 0));
-        List<Integer> numEntitiesPerCol = new ArrayList<>(Collections.nCopies(jTable.numCols, 0));
-        List<Integer> numCellToEntityMatchesPerCol = new ArrayList<>(Collections.nCopies(jTable.numCols, 0));
-        List<Boolean> tableColumnsIsNumeric = new ArrayList<>(Collections.nCopies(jTable.numCols, false));
+        List<Integer> numEntitiesPerRow = new ArrayList<>(Collections.nCopies(table.rowCount(), 0));
+        List<Integer> numEntitiesPerCol = new ArrayList<>(Collections.nCopies(table.columnCount(), 0));
+        List<Integer> numCellToEntityMatchesPerCol = new ArrayList<>(Collections.nCopies(table.columnCount(), 0));
         long numCellToEntityMatches = 0L; // Specifies the total number (bag semantics) of entities all cells map to
         int entityCount = 0;
 
@@ -366,34 +353,17 @@ public class IndexWriter implements IndexIO
             numCellToEntityMatchesPerCol.set(colId, numCellToEntityMatchesPerCol.get(colId) + 1);
         }
 
-        if (jTable.numNumericCols == jTable.numCols)
-            tableColumnsIsNumeric = new ArrayList<>(Collections.nCopies(jTable.numCols, true));
-
-        else if (!jTable.rows.isEmpty())
-        {
-            int colId = 0;
-
-            for (JsonTable.TableCell cell : jTable.rows.get(0))
-            {
-                if (cell.isNumeric)
-                    tableColumnsIsNumeric.set(colId, true);
-
-                colId++;
-            }
-        }
-
         this.tableStatsCollected.incrementAndGet();
         return Stats.build()
-                .rows(jTable.numDataRows)
-                .columns(jTable.numCols)
-                .cells(jTable.numDataRows * jTable.numCols)
+                .rows(table.rowCount())
+                .columns(table.columnCount())
+                .cells(table.rowCount() * table.columnCount())
                 .entities(entityCount)
                 .mappedCells(entityMatches.size())
                 .entitiesPerRow(numEntitiesPerRow)
                 .entitiesPerColumn(numEntitiesPerCol)
                 .cellToEntityMatches(numCellToEntityMatches)
                 .cellToEntityMatchesPerCol(numCellToEntityMatchesPerCol)
-                .numericTableColumns(tableColumnsIsNumeric)
                 .finish();
     }
 

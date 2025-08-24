@@ -104,49 +104,7 @@ docker exec -it jazero_pg psql -U jazero embeddings
 
 ##### Loading Tables and Indexes
 
-The tables must be in JSON format with the fields __id_, _numDataRows_, _numCols_, numNumericCols, and _rows_, where _rows_ is an array of table rows.
-Each cell must contain a single field `text` which hold the content of the table cell.
-The field _headers_ includes the header information of the table.
-
-An example of a table is given below:
-
-```json
-{
-  "_id": "1514-27", 
-  "numCols": 2, 
-  "numDataRows": 2,
-  "numNumericCols": 0,
-  "headers": [
-    {
-      "text": "Olympic event",
-      "isNumeric": false
-    },
-    {
-      "text": "Athlete",
-      "isNumeric": false
-    }
-  ],
-  "rows": [
-    [
-      {
-        "text": "1900 Paris"
-      }, 
-      {
-        "text": "Walter Tewksbury"
-      }
-    ],
-    [
-      {
-        "text": "1904 St. Louis"
-      }, 
-      {
-        "text": "Harry Hillman"
-      }
-    ]
-  ]
-}
-```
-
+The tables must be in CSV format, and the first row must be a header row.
 Loading a table corpus of 100K tables will take around a full day, depending on the machine.
 
 ### Searching Jazero
@@ -161,7 +119,7 @@ The following section will describe searching, as well as other operations, in J
 The repository for the connectors to communicate with Jazero can be found <a href="https://github.com/EDAO-Project/Jazero/tree/main/JDLC">here</a>.
 There is both a C, Java connector, and Python connector.
 
-<u>Remember to run the methods to insert tables and embeddings on the machine running Jazero. Only searching can be performed remotely.</u>
+<u>Commands to insert tables and embeddings must be executed on the machine running Jazero.</u>
 
 ### Jazero Web
 This repository has a web interface to interact with an instance of Jazero.
