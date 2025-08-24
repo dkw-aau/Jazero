@@ -418,7 +418,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             }
 
             Stream<Path> fileStream = Files.find(dir.toPath(), Integer.MAX_VALUE,
-                    (filePath, fileAttr) -> fileAttr.isRegularFile() && filePath.getFileName().toString().endsWith(".json"));
+                    (filePath, fileAttr) -> fileAttr.isRegularFile() && filePath.getFileName().toString().endsWith(".csv"));
             List<Path> filePaths = fileStream.collect(Collectors.toList());
             Logger.log(Logger.Level.INFO, "There are " + filePaths.size() + " files to be processed.");
 
