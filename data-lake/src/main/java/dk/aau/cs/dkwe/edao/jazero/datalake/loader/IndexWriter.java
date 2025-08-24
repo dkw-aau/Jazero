@@ -8,7 +8,6 @@ import com.stepstone.search.hnswlib.jna.exception.ItemCannotBeInsertedIntoTheVec
 import dk.aau.cs.dkwe.edao.jazero.datalake.connector.DBDriverBatch;
 import dk.aau.cs.dkwe.edao.jazero.datalake.connector.service.ELService;
 import dk.aau.cs.dkwe.edao.jazero.datalake.connector.service.KGService;
-import dk.aau.cs.dkwe.edao.jazero.datalake.parser.ParsingException;
 import dk.aau.cs.dkwe.edao.jazero.datalake.parser.TableParser;
 import dk.aau.cs.dkwe.edao.jazero.datalake.store.*;
 import dk.aau.cs.dkwe.edao.jazero.datalake.store.hnsw.HNSW;
