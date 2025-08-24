@@ -1,55 +1,15 @@
 package dk.aau.cs.dkwe.edao.jazero.datalake.utilities;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Path;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
 import dk.aau.cs.dkwe.edao.jazero.datalake.parser.EmbeddingsParser;
 import dk.aau.cs.dkwe.edao.jazero.datalake.parser.Parser;
-import dk.aau.cs.dkwe.edao.jazero.datalake.parser.ParsingException;
 import dk.aau.cs.dkwe.edao.jazero.datalake.similarity.CosineSimilarity;
 import dk.aau.cs.dkwe.edao.jazero.datalake.structures.table.Table;
-import dk.aau.cs.dkwe.edao.jazero.datalake.tables.JsonTable;
 
 public class Utils
 {
-    /**
-     * Returns the JsonTable from a path to the json file
-     * @param path: Path to the Json file corresponding to a table
-     * @return a JsonTable object if table from path read successfully. Otherwise, returns an empty JsonTable
-    */
-    public static JsonTable getTableFromPath(Path path)
-    {
-        // Tries to parse the JSON file, it fails if file not found or JSON is not well formatted
-        TypeAdapter<JsonTable> strictGsonObjectAdapter = new Gson().getAdapter(JsonTable.class);
-        JsonTable table;
-
-        try (JsonReader reader = new JsonReader(new FileReader(path.toFile())))
-        {
-            table = strictGsonObjectAdapter.read(reader);
-        }
-
-        catch (IOException e)
-        {
-            e.printStackTrace();
-            throw new ParsingException("Failed to parse '" + path + "'\n" + e.getMessage());
-        }
-
-        // We check if all the required json attributes are set
-        if (table == null || table._id  == null || table.rows == null)
-        {
-            throw new ParsingException("Failed to parse '" + path + "'");
-        }
-
-        return table;
-    }
-
     public static List<Double> averageVector(List<List<Double>> vec)
     {
         if (vec.isEmpty())
