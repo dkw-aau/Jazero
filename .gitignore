@@ -14,6 +14,8 @@ JDLC/c/.vscode/
 web/package.json
 web/package-lock.json
 web/src/main/bundles/dev.bundle
+hdfs/namenode/
+hdfs/datanode/
 
 ### Mounts ###
 index/

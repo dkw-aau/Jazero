@@ -35,18 +35,18 @@ public class ProgressiveIndexWriter extends IndexWriter implements ProgressiveIn
     private double maxPriority = -1.0;
     private final HashSet<String> insertedIds = new HashSet<>();
 
-    public ProgressiveIndexWriter(List<Path> files, File indexPath, File dataOutputPath, StorageHandler.StorageType storageType,
+    public ProgressiveIndexWriter(StorageHandler storage, File indexPath, File dataOutputPath,
                                   KGService kgService, ELService elService, DBDriverBatch<List<Double>, String> embeddingStore,
                                   int threads, String wikiPrefix, String uriPrefix, Scheduler scheduler, Runnable cleanup)
     {
-        super(files, indexPath, dataOutputPath, storageType, kgService, elService, embeddingStore, threads, wikiPrefix, uriPrefix);
+        super(storage, indexPath, dataOutputPath, kgService, elService, embeddingStore, threads, wikiPrefix, uriPrefix);
         this.scheduler = scheduler;
         this.cleanupProcess = cleanup;
-        this.corpusSize = files.size();
+        this.corpusSize = storage.count();
 
-        for (Path path : files)
+        for (File file : storage)
         {
-            IndexTable it = new IndexTable(path, this::indexRow);
+            IndexTable it = new IndexTable(file.toPath(), this::indexRow);
             this.scheduler.addIndexTable(it);
         }
     }

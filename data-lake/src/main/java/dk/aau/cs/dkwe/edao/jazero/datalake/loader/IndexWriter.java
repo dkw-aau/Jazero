@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 
 public class IndexWriter implements IndexIO
 {
-    protected List<Path> files;
     protected final File indexDir, dataDir;
     protected final StorageHandler storage;
     protected final int threads;
@@ -66,17 +65,12 @@ public class IndexWriter implements IndexIO
     private static final String STATS_DIR = "statistics/";
     protected static final int HNSW_K = 10000;
 
-    public IndexWriter(List<Path> files, File indexPath, File dataOutputPath, StorageHandler.StorageType storageType, KGService kgService,
-                       ELService elService, DBDriverBatch<List<Double>, String> embeddingStore, int threads, String wikiPrefix,
-                       String uriPrefix)
+    public IndexWriter(StorageHandler storage, File indexPath, File dataOutputPath, KGService kgService, ELService elService,
+                       DBDriverBatch<List<Double>, String> embeddingStore, int threads, String wikiPrefix, String uriPrefix)
     {
-        if (files.isEmpty())
-            throw new IllegalArgumentException("Missing files to load");
-
-        this.files = files;
+        this.storage = storage;
         this.indexDir = indexPath;
         this.dataDir = dataOutputPath;
-        this.storage = new StorageHandler(storageType);
         this.embeddingsDB = embeddingStore;
         this.kg = kgService;
         this.el = elService;
@@ -86,7 +80,7 @@ public class IndexWriter implements IndexIO
         this.entityTableLink = SynchronizedIndex.wrap(new EntityTableLink());
         this.hnsw = SynchronizedIndex.wrap(new HNSW(Entity::getEmbedding, Configuration.getEmbeddingsDimension(),
                 kgService.size(), HNSW_K, getEntityLinker(), getEntityTable(), getEntityTableLinker(), indexPath + "/" + Configuration.getHNSWFile()));
-        ((EntityTableLink) this.entityTableLink.index()).setDirectory(files.get(0).toFile().getParent() + "/");
+        ((EntityTableLink) this.entityTableLink.index()).setDirectory(storage.getStorageDirectory().getAbsolutePath());
     }
 
     /**
@@ -98,16 +92,17 @@ public class IndexWriter implements IndexIO
         if (this.loadedTables.get() > 0)
             throw new RuntimeException("Loading has already complete");
 
-        int size = this.files.size();
+        int size = 0;
+        Iterator<File> files = this.storage.iterator();
         ExecutorService threadPool = Executors.newFixedThreadPool(this.threads);
-        List<Future<Boolean>> tasks = new ArrayList<>(size);
+        List<Future<Boolean>> tasks = new ArrayList<>();
         long startTime = System.nanoTime(), prev = 0;
 
-        for (int i = 0; i < size; i++)
+        while (files.hasNext())
         {
-            final int index = i;
-            Future<Boolean> task = threadPool.submit(() -> load(this.files.get(index)));
+            Future<Boolean> task = threadPool.submit(() -> load(files.next().toPath()));
             tasks.add(task);
+            size++;
         }
 
         while (this.loadedTables.get() < size)
@@ -304,7 +299,6 @@ public class IndexWriter implements IndexIO
         synchronized (this.lock)
         {
             saveStats(table, FilenameUtils.removeExtension(tableName), inputEntities.iterator(), entityMatches);
-            this.storage.insert(tablePath.toFile());
         }
 
         return true;

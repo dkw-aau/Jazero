@@ -78,8 +78,9 @@ These can be executed with `java -jar <JAR FILE>`.
 Here, we describe working with Jazero: how to load Jazero with tables, load indexes, load embeddings, and search Jazero.
 
 ### Loading Jazero
-Tables in Jazero are loaded and stored either natively on disk or in HDFS (HDFS is not yet supported).
+Tables in Jazero are loaded and stored in HDFS.
 Loading of embeddings must be performed first, as the embeddings are used to construct indexes during loading of tables.
+Provide the address of the HDFS name node and the HDFS directory in which the data lake tables exist.
 
 ##### Loading Embeddings
 
@@ -105,7 +106,18 @@ docker exec -it jazero_pg psql -U jazero embeddings
 ##### Loading Tables and Indexes
 
 The tables must be in CSV format, and the first row must be a header row.
-Loading a table corpus of 100K tables will take around a full day, depending on the machine.
+
+Jazero uses HDFS as its underlying, distributed storage system.
+To setup a simple standalone HDFS cluster, go to the directory `hdfs/` and run the following command to start an HDFS cluster.
+
+```bash
+docker-compose up -d
+```
+
+You can access this standalone cluster web page at <a href="http://localhost:9870/">http://localhost:9870/</a>.
+See <a href="https://github.com/dkw-aau/Jazero/blob/main/hdfs/README.md">here</a> for more information on using HDFS and how to save data lake tables in a directory.
+
+Alternatively, you can setup your own HDFS cluster and store the data lake tables.
 
 ### Searching Jazero
 Jazero utilizes the _query-by-example_ paradigm.
@@ -116,7 +128,7 @@ The following section will describe searching, as well as other operations, in J
 
 ### Connector
 
-The repository for the connectors to communicate with Jazero can be found <a href="https://github.com/EDAO-Project/Jazero/tree/main/JDLC">here</a>.
+The repository for the connectors to communicate with Jazero can be found <a href="https://github.com/dkw-aau/Jazero/tree/main/JDLC">here</a>.
 There is both a C, Java connector, and Python connector.
 
 <u>Commands to insert tables and embeddings must be executed on the machine running Jazero.</u>

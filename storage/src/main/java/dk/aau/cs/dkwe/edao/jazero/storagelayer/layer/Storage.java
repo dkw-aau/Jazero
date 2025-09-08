@@ -1,5 +1,6 @@
 package dk.aau.cs.dkwe.edao.jazero.storagelayer.layer;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -11,4 +12,19 @@ public interface Storage<E> extends Iterable<E>
     Set<E> elements(Predicate<E> predicate);
     boolean clear();
     boolean delete(E element);
+
+    default boolean insertAll(Collection<? extends E> c)
+    {
+        boolean ret = false;
+
+        for (E e : c)
+        {
+            if (!insert(e))
+            {
+                ret = true;
+            }
+        }
+
+        return ret;
+    }
 }

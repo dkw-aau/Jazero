@@ -1,0 +1,51 @@
+version: '3'
+services:
+  jazero_namenode:
+    image: apache/hadoop:3.4.1
+    container_name: jazero_namenode
+    hostname: namenode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+    volumes:
+      - ./namenode:/opt/hadoop/data/nameNode
+      - ./config:/opt/hadoop/etc/hadoop
+      - ./hdfs.sh:/start-hdfs.sh
+      - ./config/log4j.properties:/opt/hadoop/etc/hadoop/log4j.properties
+      - ../.tables:/tables
+    ports:
+      - "9870:9870"
+    networks:
+      hdfs_network:
+        ipv4_address: 172.30.0.2
+    command: [ "/bin/bash", "/start-hdfs.sh" ]
+    restart: always
+
+  jazero_datanode:
+    image: apache/hadoop:3.4.1
+    container_name: jazero_datanode
+    hostname: datanode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+    volumes:
+      - ./datanode:/opt/hadoop/data/dataNode
+      - ./config:/opt/hadoop/etc/hadoop
+      - ./datanode.sh:/init-datanode.sh
+      - ./config/log4j.properties:/opt/hadoop/etc/hadoop/log4j.properties
+    depends_on:
+      - jazero_namenode
+    networks:
+      hdfs_network:
+        ipv4_address: 172.30.0.3
+    command: [ "/bin/bash", "/init-datanode.sh" ]
+    restart: always
+
+networks:
+  hdfs_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24

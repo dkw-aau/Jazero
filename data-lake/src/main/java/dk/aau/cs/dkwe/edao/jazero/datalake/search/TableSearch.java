@@ -61,23 +61,24 @@ public class TableSearch extends AbstractSearch
             long start = System.nanoTime();
             ExecutorService threadPool = Executors.newFixedThreadPool(this.threads);
             List<Future<Pair<File, Double>>> parsed = new ArrayList<>(this.storage.count());
-            Set<File> tableFiles = this.prefilter != null ? prefilterSearchSpace(query) : this.storage.elements();
-            int tableCount = tableFiles.size();
+            Iterator<File> tableFiles = this.prefilter != null ? prefilterSearchSpace(query).iterator() : this.storage.iterator();
+            int tableCount = 0;
 
             if (this.prefilter != null)
             {
                 Logger.log(Logger.Level.INFO, "Pre-filtered corpus in " + this.prefilter.elapsedNanoSeconds() + "ns");
             }
 
-            Logger.log(Logger.Level.INFO, "There are " + tableCount + " files to be processed.");
-
-            for (File f : tableFiles)
+            while (tableFiles.hasNext())
             {
-                Future<Pair<File, Double>> future = threadPool.submit(() -> new Pair<>(f, this.ranker.score(query, f)));
+                File tableFile = tableFiles.next();
+                Future<Pair<File, Double>> future = threadPool.submit(() -> new Pair<>(tableFile, this.ranker.score(query, tableFile)));
                 parsed.add(future);
+                tableCount++;
             }
 
             long done = 1, prev = 0;
+            Logger.log(Logger.Level.INFO, "Processing " + tableCount + " files.");
 
             while (done < tableCount)
             {

@@ -136,6 +136,12 @@ public class Configuration
         if (!props.contains("EKGManagerPort"))
             props.setProperty("EKGManagerPort", "8083");
 
+        if (props.contains("DBHost"))
+            props.setProperty("DBHost", "localhost");
+
+        if (!props.contains("DBPort"))
+            props.setProperty("DBPort", "5432");
+
         if (!props.contains("GoogleAPIKey"))
             props.setProperty("GoogleAPIKey", "AIzaSyB9mH-706htjAcFBxfrXaJ5jpDnuBfxhm8");
 
@@ -165,6 +171,9 @@ public class Configuration
 
         if (!props.contains("HNSW"))
             props.setProperty("HNSW", "hnsw.ser");
+
+        if (!props.contains("subnet"))
+            props.setProperty("subnet", "172.30.0.0/24");
 
         writeProperties(props);
     }
@@ -249,19 +258,9 @@ public class Configuration
         return readProperties().getProperty("DBName");
     }
 
-    public static void setDBHost(String host)
-    {
-        addProperty("DBHost", host);
-    }
-
     public static String getDBHost()
     {
         return readProperties().getProperty("DBHost");
-    }
-
-    public static void setDBPort(int port)
-    {
-        addProperty("DBPort", String.valueOf(port));
     }
 
     public static int getDBPort()
@@ -387,6 +386,32 @@ public class Configuration
     public static StorageHandler.StorageType getStorageType()
     {
         return StorageHandler.StorageType.valueOf(readProperties().getProperty("StorageType"));
+    }
+
+    public static void setHdfsConfigFiles(String coreSiteFilePath, String hdfsSiteFilePath)
+    {
+        addProperty("core-site", coreSiteFilePath);
+        addProperty("hdfs-site", hdfsSiteFilePath);
+    }
+
+    public static String getHdfsCoreSiteFile()
+    {
+        return readProperties().getProperty("core-site");
+    }
+
+    public static String getHdfsHdfsSite()
+    {
+        return readProperties().getProperty("hdfs-site");
+    }
+
+    public static void setHdfsDir(String directory)
+    {
+        addProperty("hdfs-dir", directory);
+    }
+
+    public static String getHdfsDir()
+    {
+        return readProperties().getProperty("hdfs-dir");
     }
 
     public static void setSDLManagerHost(String host)
@@ -517,5 +542,10 @@ public class Configuration
     public static int getEmbeddingsDimension()
     {
         return Integer.parseInt(readProperties().getProperty("dimension"));
+    }
+
+    public static String getSubnet()
+    {
+        return readProperties().getProperty("subnet");
     }
 }

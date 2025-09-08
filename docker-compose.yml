@@ -2,29 +2,44 @@ version: "3"
 
 services:
   data-lake:
-    network_mode: host
     build:
       context: .
       dockerfile: data-lake/Dockerfile
+    hostname: jazero-data-lake
+    networks:
+      jazero_network:
+        - ipv4_address: 172.30.0.5
+    ports:
+      - "8081:8081"
     volumes:
       - ./knowledge-graph/neo4j/:/home/knowledge-graph/neo4j
       - ./index/:/index
       - ./logs/:/logs
       - ./.tables/:/srv/storage
   entity-linker:
-    network_mode: host
     build:
       context: .
       dockerfile: entity-linker/Dockerfile
+    hostname: jazero-entity-linker
+    networks:
+      jazero_network:
+        - ipv4_address: 172.30.0.4
+    ports:
+      - "8082:8082"
     volumes:
       - ./knowledge-graph/neo4j/:/home/knowledge-graph/neo4j
       - ./index/:/index
       - ./kg:/home/kg
   ekg-manager:
-    network_mode: host
     build:
       context: .
       dockerfile: knowledge-graph/Dockerfile
+    hostname: jazero-ekg
+    networks:
+      jazero_network:
+        - ipv4_address: 172.30.0.3
+    ports:
+      - "8083:8083"
     volumes:
       - ./knowledge-graph/neo4j/:/scripts
       - ./index/:/index
@@ -32,7 +47,12 @@ services:
   embeddings:
     image: postgres
     container_name: jazero_pg
-    network_mode: host
+    hostname: jazero-hostname
+    networks:
+      jazero_network:
+        - ipv4_address: 172.30.0.2
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=jazero
       - POSTGRES_PASSWORD=1234
@@ -40,7 +60,14 @@ services:
   neo4j:
     image: neo4j:4.1.4
     container_name: jazero_neo4j
-    network_mode: host
+    hostname: jazero-neo4j
+    networks:
+      jazero_network:
+        - ipv4_address: 172.30.0.1
+    ports:
+      - "7474:7474"
+      - "7473:7473"
+      - "7687:7687"
     volumes:
       - ./index/neo4j/data:/var/lib/neo4j/data
       - ./index/neo4j/plugins:/var/lib/neo4j/plugins
@@ -54,3 +81,15 @@ services:
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
       - NEO4J_apoc_export_file_enabled=true
       - NEO4J_apoc_import_file_use_neo4j_config=false
+networks:
+  jazero_network:
+    external: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  hdfs_network:
+    external: true
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24

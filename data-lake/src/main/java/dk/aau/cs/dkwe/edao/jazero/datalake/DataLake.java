@@ -252,8 +252,9 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         }
 
         Table<String> query = parseQuery(body.get("query"));
+        String hdfsTableDir = Configuration.getHdfsDir(), coreSitePath = Configuration.getHdfsCoreSiteFile(), hdfsSitePath = Configuration.getHdfsHdfsSite();
         Iterator<String> queryIterator = query.iterator();
-        StorageHandler storageHandler = new StorageHandler(Configuration.getStorageType());
+        StorageHandler storageHandler = new StorageHandler(hdfsTableDir, StorageHandler.StorageType.HDFS, coreSitePath, hdfsSitePath);
         KGService kgService = new KGService(Configuration.getEKGManagerHost(), Configuration.getEKGManagerPort());
         DBDriverBatch<List<Double>, String> embeddingsDB = EmbeddingsFactory.fromConfig(false);
         Ranker ranker = new SemanticScore(linker, entityTable, tableLink, singleColumnPerEntity, false,
@@ -321,18 +322,20 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         return query;
     }
 
+    // TODO: Insert all tables into storage first so we can iterate the storage when searching
     /**
      * POST request to load data lake
      * Make sure to only use this once as it will delete any previously loaded data
      * @param headers Requires:
      *                "Content-Type": "application/json",
-     *                "Storage-Type": "native|HDFS",
      *                "username": "<USERNAME>",
      *                "password": "<PASSWORD>"
      *
      * @param body JSON string with path to directory of JSON table files. Format:
      *             {
-     *                  "directory": "<DIRECTORY>",
+     *                  "hdfs-directory": "<HDFS TABLE DIRECTORY>",
+     *                  "hdfs-core-site": "<HDFS CORE SITE FILE>",
+     *                  "hdfs-hdfs-site": "<HDFS HDFS SITE FILE>",
      *                  "table-prefix": "<TABLE PREFIX>",
      *                  "kg-prefix": "<KG PREFIX>",
      *                  ["progressive": "<BOOLEAN VALUE>"]
@@ -347,7 +350,8 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
     @PostMapping(value = "/insert")
     public synchronized ResponseEntity<String> insert(@RequestHeader Map<String, String> headers, @RequestBody Map<String, String> body)
     {
-        final String dirKey = "directory", tablePrefixKey = "table-prefix", kgPrefixKey = "kg-prefix";
+        final String hdfsDir = "hdfs-directory", coreSite = "hdfs-core-site", hdfsSite = "hdfs-hdfs-site",
+                tablePrefixKey = "table-prefix", kgPrefixKey = "kg-prefix";
         File indexDir = new File(Configuration.getKGDir());
         Set<String> missingKeys = new HashSet<>(Set.of("directory", "table-prefix", "kg-prefix"));
         missingKeys.removeAll(body.keySet());
@@ -377,29 +381,18 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             return ResponseEntity.badRequest().body("Content-Type header must be " + MediaType.APPLICATION_JSON);
         }
 
-        else if (!headers.containsKey("storage-type") ||
-                (!headers.get("storage-type").equals("NATIVE") && !headers.get("storage-type").equals("HDFS")))
-        {
-            return ResponseEntity.badRequest().body("Storage-Type header must be either '" + StorageHandler.StorageType.NATIVE.name() +
-                    "' or '" + StorageHandler.StorageType.HDFS.name() + "'");
-        }
-
         else if (!missingKeys.isEmpty())
         {
             return ResponseEntity.badRequest().body("Missing " + missingKeys + " in JSON body");
         }
 
         boolean isProgressive = Boolean.parseBoolean(body.getOrDefault("progressive", "false"));
-        File dir = new File(body.get(dirKey));
-        StorageHandler.StorageType storageType = StorageHandler.StorageType.valueOf(headers.get("storage-type"));
-        Configuration.setStorageType(storageType);
+        File coreSiteFile = new File(body.get(coreSite)), hdfsSiteFile = new File(hdfsSite);
+        Configuration.setStorageType(StorageHandler.StorageType.HDFS);
+        Configuration.setHdfsConfigFiles(coreSiteFile.getAbsolutePath(), hdfsSiteFile.getAbsolutePath());
+        Configuration.setHdfsDir(hdfsDir);
 
-        if (!dir.exists() || !dir.isDirectory())
-        {
-            return ResponseEntity.badRequest().body("'" + dir + "' is not a directory");
-        }
-
-        else if (this.indexLoadingInProgress)
+        if (this.indexLoadingInProgress)
         {
             return ResponseEntity.badRequest().body("Indexes are currently being build. Wait until finished");
         }
@@ -410,6 +403,8 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             KGService kgService = new KGService(Configuration.getEKGManagerHost(), Configuration.getEKGManagerPort());
             ELService elService = new ELService(Configuration.getEntityLinkerHost(), Configuration.getEntityLinkerPort());
             DBDriverBatch<List<Double>, String> embeddingStore = EmbeddingsFactory.fromConfig(false);
+            StorageHandler storage = new StorageHandler(hdfsDir, StorageHandler.StorageType.HDFS, coreSiteFile.getAbsolutePath(), hdfsSiteFile.getAbsolutePath());
+            int storageSize = storage.count();
             this.indexLoadingInProgress = true;
 
             if (kgService.size() < 1)
@@ -417,10 +412,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
                 Logger.log(Logger.Level.ERROR, "KG is empty. Make sure to load the KG according to README. Continuing...");
             }
 
-            Stream<Path> fileStream = Files.find(dir.toPath(), Integer.MAX_VALUE,
-                    (filePath, fileAttr) -> fileAttr.isRegularFile() && filePath.getFileName().toString().endsWith(".csv"));
-            List<Path> filePaths = fileStream.collect(Collectors.toList());
-            Logger.log(Logger.Level.INFO, "There are " + filePaths.size() + " files to be processed.");
+            Logger.log(Logger.Level.INFO, "There are " + storageSize + " files to be processed.");
 
             if (isProgressive)
             {
@@ -436,16 +428,16 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
                             TimeUnit.SECONDS.convert(indexer.elapsedTime(), TimeUnit.NANOSECONDS) + "s");
                     analysis.record("insert-progressive", 1);
                 };
-                indexer = new ProgressiveIndexWriter(filePaths, new File(Configuration.getIndexDir()), DATA_DIR,
-                        storageType, kgService, elService, embeddingStore, THREADS, body.get(tablePrefixKey), body.get(kgPrefixKey),
+                indexer = new ProgressiveIndexWriter(storage, new File(Configuration.getIndexDir()), DATA_DIR,
+                        kgService, elService, embeddingStore, THREADS, body.get(tablePrefixKey), body.get(kgPrefixKey),
                         new PriorityScheduler(), cleanup);
                 indexer.performIO();
-                Logger.log(Logger.Level.INFO, "Started progressive loading of " + filePaths.size() + " tables");
+                Logger.log(Logger.Level.INFO, "Started progressive loading of " + storageSize + " tables");
 
-                return ResponseEntity.ok("Started progressive loading of " + filePaths.size() + " tables");
+                return ResponseEntity.ok("Started progressive loading of " + storageSize + " tables");
             }
 
-            indexer = new IndexWriter(filePaths, new File(Configuration.getIndexDir()), DATA_DIR, storageType,
+            indexer = new IndexWriter(storage, new File(Configuration.getIndexDir()), DATA_DIR,
                     kgService, elService, embeddingStore, THREADS, body.get(tablePrefixKey), body.get(kgPrefixKey));
             indexer.performIO();
             embeddingStore.close();
@@ -543,9 +535,6 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         {
             return ResponseEntity.badRequest().body("Missing " + missingKeys + " in JSON body");
         }
-
-        Configuration.setDBHost("127.0.0.1");
-        Configuration.setDBPort(5432);
 
         try
         {
@@ -667,7 +656,8 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             return ResponseEntity.badRequest().body("Indexes are currently being loaded");
         }
 
-        StorageHandler storage = new StorageHandler(Configuration.getStorageType());
+        String tableDir = Configuration.getHdfsDir(), coreSite = Configuration.getHdfsCoreSiteFile(), hdfsSite = Configuration.getHdfsHdfsSite();
+        StorageHandler storage = new StorageHandler(tableDir, StorageHandler.StorageType.HDFS, coreSite, hdfsSite);
         Logger.log(Logger.Level.INFO, "Removing tables");
 
         if (!storage.clear())
@@ -761,14 +751,15 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         }
 
         String tableId = body.get(key);
-        StorageHandler storageHandler = new StorageHandler(Configuration.getStorageType());
+        String tableDir = Configuration.getHdfsDir(), coreSite = Configuration.getHdfsCoreSiteFile(), hdfsSite = Configuration.getHdfsHdfsSite();
+        StorageHandler storage = new StorageHandler(tableDir, StorageHandler.StorageType.HDFS, coreSite, hdfsSite);
 
-        if (!storageHandler.delete(new File(tableId)))
+        if (!storage.delete(new File(tableId)))
         {
             return ResponseEntity.badRequest().body("Table '" + tableId + "' was not deleted. Maybe it doesn't exist?");
         }
 
-        // TODO: Remove also from HNSW indexes and re-serialize
+        // TODO: Remove also from indexes and re-serialize
 
         Logger.log(Logger.Level.INFO, "Removed table '" + tableId + "'");
         FileLogger.log(FileLogger.Service.SDL_Manager, "Table '" + tableId + "' has been removed");
