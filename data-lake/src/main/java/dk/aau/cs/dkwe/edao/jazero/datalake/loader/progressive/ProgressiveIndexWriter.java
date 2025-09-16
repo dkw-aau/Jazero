@@ -95,7 +95,6 @@ public class ProgressiveIndexWriter extends IndexWriter implements ProgressiveIn
 
                         if (!this.insertedIds.contains(item.getId()))
                         {
-                            super.storage.insert(((IndexTable) item).getFilePath().toFile());
                             this.insertedIds.add(item.getId());
                         }
                     }

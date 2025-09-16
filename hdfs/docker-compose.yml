@@ -18,7 +18,7 @@ services:
       - "9870:9870"
     networks:
       hdfs_network:
-        ipv4_address: 172.30.0.2
+        ipv4_address: 10.5.0.2
     command: [ "/bin/bash", "/start-hdfs.sh" ]
     restart: always
 
@@ -39,7 +39,7 @@ services:
       - jazero_namenode
     networks:
       hdfs_network:
-        ipv4_address: 172.30.0.3
+        ipv4_address: 10.5.0.3
     command: [ "/bin/bash", "/init-datanode.sh" ]
     restart: always
 
@@ -48,4 +48,5 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.31.0.0/24
+      - subnet: 10.5.0.0/16
+      gateway: 10.5.0.1

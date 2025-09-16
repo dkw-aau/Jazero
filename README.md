@@ -115,7 +115,7 @@ docker-compose up -d
 ```
 
 You can access this standalone cluster web page at <a href="http://localhost:9870/">http://localhost:9870/</a>.
-See <a href="https://github.com/dkw-aau/Jazero/blob/main/hdfs/README.md">here</a> for more information on using HDFS and how to save data lake tables in a directory.
+See <a href="https://github.com/dkw-aau/Jazero/blob/main/hdfs/README.md">here</a> for more information on using HDFS and how to store data lake tables in a directory.
 
 Alternatively, you can setup your own HDFS cluster and store the data lake tables.
 
@@ -131,7 +131,7 @@ The following section will describe searching, as well as other operations, in J
 The repository for the connectors to communicate with Jazero can be found <a href="https://github.com/dkw-aau/Jazero/tree/main/JDLC">here</a>.
 There is both a C, Java connector, and Python connector.
 
-<u>Commands to insert tables and embeddings must be executed on the machine running Jazero.</u>
+<u>Commands to insert embeddings must be executed on the machine running Jazero.</u>
 
 ### Jazero Web
 This repository has a web interface to interact with an instance of Jazero.

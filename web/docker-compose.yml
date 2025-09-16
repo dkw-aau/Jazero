@@ -33,5 +33,9 @@ services:
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
 networks:
-  jazero_web:
+  jazero_network:
     driver: bridge
+    external: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
