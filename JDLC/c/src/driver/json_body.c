@@ -8,11 +8,11 @@ const char *load_embeddings_body(char *buffer, const char *file, const char *del
     return buffer;
 }
 
-const char *load_body(char *buffer, const char *table_dir, const char *table_entity_prefix, const char *kg_prefix, uint8_t progressive)
+const char *load_body(char *buffer, const char *table_dir, const char *hdfs_core_site, const char *hdfs_site, const char *table_entity_prefix, const char *kg_prefix, uint8_t progressive)
 {
     char *progressive_str = progressive ? "true": "false";
-    sprintf(buffer, "{\"directory\": \"%s\", \"table-prefix\": \"%s\", \"kg-prefix\": \"%s\", \"progressive\": \"%s\"}",
-            table_dir, table_entity_prefix, kg_prefix, progressive_str);
+    sprintf(buffer, "{\"hdfs-directory\": \"%s\", \"hdfs-core-site\": \"%s\", \"hdfs-hdfs-site\": \"%s\", \"table-prefix\": \"%s\", \"kg-prefix\": \"%s\", \"progressive\": \"%s\"}",
+            table_dir, hdfs_core_site, hdfs_site, table_entity_prefix, kg_prefix, progressive_str);
     return buffer;
 }
 

@@ -6,8 +6,8 @@
 
 response insert_embeddings(const char *ip, user u, const char *embeddings_file, const char *delimiter,
                            const char *jazero_dir, uint8_t verbose);
-response load(const char *ip, user u, const char *storage_type, const char *table_entity_prefix, const char *kg_entity_prefix,
-              const char *jazero_dir, const char *table_dir, uint8_t progressive, uint8_t verbose);
+response load(const char *ip, user u, const char *table_dir, const char *hdfs_core_site, const char *hdfs_site,
+        const char *table_entity_prefix, const char *kg_entity_prefix, uint8_t progressive, uint8_t verbose);
 response search(const char *ip, user u, query q, uint32_t top_k, enum entity_similarity entity_sim,
         enum similarity_measure sim_measure, enum cosine_function embeddings_function, enum prefilter filter_type, int query_time);
 response keyword_search(const char *ip, user u, const char *query);

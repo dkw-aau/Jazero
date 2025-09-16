@@ -83,12 +83,13 @@ extern "C"
 #endif
 
 struct properties init_params_insert_embeddings(void);
-struct properties init_params_load(const char *storage_type);
+struct properties init_params_load();
 struct properties init_params_search(void);
 const char *add_user_body(char *buffer, user new_user);
 const char *remove_user_body(char *buffer, const char *username);
 const char *load_embeddings_body(char *buffer, const char *file, const char *delimiter);
-const char *load_body(char *buffer, const char *table_dir, const char *table_entity_prefix, const char *kg_prefix, uint8_t progressive);
+const char *load_body(char *buffer, const char *table_dir, const char *hdfs_core_site, const char *hdfs_site,
+        const char *table_entity_prefix, const char *kg_prefix, uint8_t progressive);
 const char *search_body(char *buffer, uint32_t top_k, enum entity_similarity entity_sim, enum cosine_function function,
         enum similarity_measure sim, enum prefilter prefilter, int query_time, query q);
 const char *keyword_search_body(char *buffer, const char *query);

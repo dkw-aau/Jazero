@@ -20,15 +20,15 @@
                 "-qt, --querytime : Maximum amount of seconds allowed to be spend on indexing before query execution (optional and only used during progressive indexing)\n" \
                 "\nkeyword\n" \
                 "-kw, --keywords : Keyword query string to search for KG entities\n" \
-                "\ninsert, insertembeddings\n" \
-                "-j, --jazerodir : Absolute path to Jazero directory on the machine running Jazero\n" \
                 "\ninsert\n" \
-                "-l, --location : Absolute path to table corpus directory on machine running Jazero\n" \
-                "-t, --storagetype : Type of storage for inserted table corpus ('NATIVE', 'HDFS' (recommended))\n" \
+                "-l, --location : HDFS path to table corpus directory on HDFS file system\n" \
+                "-hcf, --hdfs-core-site : Absolute path to the HDFS core site file on the Jazero server\n" \
+                "-hs, --hdfs-site : Absolute path to the HDFS site file on the Jazero server\n" \
                 "-p, --tableentityprefix : Prefix of table entity URIs\n" \
                 "-i, --kgentityprefix : Prefix of KG entity IRIs\n" \
                 "-prog, --progressive : Enable progressive indexing ('true', 'false')\n" \
                 "\ninsertembeddings\n" \
+                "-j, --jazerodir : Absolute path to Jazero directory on the machine running Jazero\n" \
                 "-e, --embeddings : Absolute path to embeddings file on the machine running Jazero\n" \
                 "-d, --delimiter : Delimiter in embeddings file (see README)\n" \
                 "\nadduser\n" \
@@ -43,7 +43,7 @@
 
 struct arguments
 {
-    char *host, *query_file, *keyword_query, *table_loc, *jazero_dir, *storage_type, *table_prefix, *kg_prefix, *embeddings_file,
+    char *host, *query_file, *keyword_query, *jazero_dir, *table_loc, *table_prefix, *kg_prefix, *embeddings_file, *hdfs_core_site, *hdfs_site,
             *delimiter, *error_msg, *this_username, *this_password, *new_username, *new_password, *old_username, *uri, *table_id;
     enum operation op;
     enum cosine_function cos_func;
@@ -70,22 +70,11 @@ static response do_insert_embeddings(const char *ip, const char *username, const
     return insert_embeddings(ip, u, embeddings_file, delimiter, jazero_dir, 1);
 }
 
-static response do_load(const char *ip, const char *username, const char *password, const char *jazero_dir,
-                        const char *table_dir, const char *storage_type, const char *table_prefix, const char *kg_prefix,
-                        int progressive)
+static response do_load(const char *ip, const char *username, const char *password, const char *table_dir,
+    const char *hdfs_core_site, const char *hdfs_site, const char *table_prefix, const char *kg_prefix, int progressive)
 {
-    if (!file_exists(jazero_dir))
-    {
-        return (response) {.status = REQUEST_ERROR, .msg = "Jazero directory does not exist"};
-    }
-
-    else if (!file_exists(table_dir))
-    {
-        return (response) {.status = REQUEST_ERROR, .msg = "Table directory does not exist"};
-    }
-
     user u = create_user(username, password);
-    return load(ip, u, storage_type, table_prefix, kg_prefix, jazero_dir, table_dir, progressive, 1);
+    return load(ip, u, table_dir, hdfs_core_site, hdfs_site, table_prefix, kg_prefix, progressive, 1);
 }
 
 static response do_search(const char *ip, const char *username, const char *password, const char *query_file,
@@ -325,23 +314,19 @@ error_t parse(const char *key, const char *arg, struct arguments *args)
         args->table_loc = (char *) arg;
     }
 
+    else if (check_key(key, "-hcf", "--hdfs-core-site"))
+    {
+        args->hdfs_core_site = (char *) arg;
+    }
+
+    else if (check_key(key, "-hs", "--hdfs-site"))
+    {
+        args->hdfs_site = (char *) args;
+    }
+
     else if (check_key(key, "-j", "--jazerodir"))
     {
         args->jazero_dir = (char *) arg;
-    }
-
-    else if (check_key(key, "-t", "--storagetype"))
-    {
-        if (strcmp(arg, "NATIVE") != 0 && strcmp(arg, "HDFS") != 0)
-        {
-            args->parse_error = 1;
-            args->error_msg = "Could not parse passed value for 'storagetype'";
-        }
-
-        else
-        {
-            args->storage_type = (char *) arg;
-        }
     }
 
     else if (check_key(key, "-p", "----tableentityprefix"))
@@ -451,8 +436,7 @@ int main(int argc, char *argv[])
 {
     response ret;
     struct arguments args = {.parse_error = 0, .entity_sim = TYPE, .top_k = 100, .sim_measure = EUCLIDEAN,
-            .storage_type = "NATIVE", .table_prefix = "", .kg_prefix = "", .delimiter = " ", .query_time = 0,
-            .filter = NONE};
+            .table_prefix = "", .kg_prefix = "", .delimiter = " ", .query_time = 0, .filter = NONE};
     args.error_msg = NULL;
     args.host = NULL;
     args.jazero_dir = NULL;
@@ -461,6 +445,8 @@ int main(int argc, char *argv[])
     args.table_loc = NULL;
     args.uri = NULL;
     args.table_id = NULL;
+    args.hdfs_core_site = NULL;
+    args.hdfs_site = NULL;
 
     for (int arg = 1; arg < argc; arg += 2)
     {
@@ -522,14 +508,14 @@ int main(int argc, char *argv[])
             break;
 
         case LOAD:
-            if (args.jazero_dir == NULL)
+            if (args.table_loc == NULL || args.hdfs_core_site == NULL || args.hdfs_site == NULL)
             {
-                ret = (response) {.status = REQUEST_ERROR, .msg = "Error: Missing Jazero directory"};
+                ret = (response) {.status = REQUEST_ERROR, .msg = "Error: Missing any of the following parameters: HDFS table directory, HDFS core site file, HDFS site file"};
                 break;
             }
 
-            ret = do_load(args.host, args.this_username, args.this_password, args.jazero_dir,
-                          args.table_loc, args.storage_type, args.table_prefix, args.kg_prefix, args.progressive);
+            ret = do_load(args.host, args.this_username, args.this_password, args.table_loc, args.hdfs_core_site,
+                args.hdfs_site, args.table_prefix, args.kg_prefix, args.progressive);
             break;
 
         case SEARCH:

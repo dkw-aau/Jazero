@@ -207,86 +207,25 @@ response insert_embeddings(const char *ip, user u, const char *embeddings_file, 
     return res;
 }
 
-static inline uint8_t prepare_tables(const char *jazero_table_dir, const char *table_folder)
+response load(const char *ip, user u, const char *table_dir, const char *hdfs_core_site, const char *hdfs_site,
+        const char *table_entity_prefix, const char *kg_entity_prefix, uint8_t progressive, uint8_t verbose)
 {
-    uint8_t has_postfix = table_folder[strlen(table_folder) - 1] == '/';
-    DIR *dirp = opendir(table_folder);
-    struct dirent *entry;
-    char *abs_path = (char *) malloc(strlen(table_folder) + 100);
-
-    if (abs_path == NULL)
-    {
-        return 0;
-    }
-
-    while ((entry = readdir(dirp)) != NULL)
-    {
-        if (entry->d_type == DT_REG)
-        {
-            sprintf(abs_path, "%s%s%s", table_folder, has_postfix ? "" : "/", entry->d_name);
-            copy_file(abs_path, jazero_table_dir);
-        }
-    }
-
-    return 1;
-}
-
-response load(const char *ip, user u, const char *storage_type, const char *table_entity_prefix, const char *kg_entity_prefix,
-              const char *jazero_dir, const char *table_dir, uint8_t progressive, uint8_t verbose)
-{
-    char *table_storage = (char *) malloc(strlen(jazero_dir) + strlen(RELATIVE_TABLES) + 5);
     response mem_error = {.status = JAZERO_ERROR, .msg = "Ran out of memory"};
-
-    if (table_storage == NULL)
-    {
-        return mem_error;
-    }
-
-    strcpy(table_storage, jazero_dir);
-
-    if (jazero_dir[strlen(jazero_dir) - 1] == '/')
-    {
-        strcpy(table_storage + strlen(jazero_dir), RELATIVE_TABLES);
-    }
-
-    else
-    {
-        strcpy(table_storage + strlen(jazero_dir), "/");
-        strcpy(table_storage + strlen(jazero_dir) + 1, RELATIVE_TABLES);
-    }
-
-    if (file_count(table_storage) > 0)
-    {
-        free(table_storage);
-        return (response) {.status = REQUEST_ERROR, .msg = "There are already tables stored in '"RELATIVE_TABLES"'"};
-    }
-
-    print(verbose, "Copying tables...\n");
-
-    if (!prepare_tables(table_storage, table_dir))
-    {
-        free(table_storage);
-        return (response) {.status = JAZERO_ERROR, .msg = "Could not prepare table files: Files not copied to mount"};
-    }
-
-    print(verbose, "Copy done\n");
-
-    struct properties headers = init_params_load(storage_type);
+    struct properties headers = init_params_load();
     jdlc request;
     struct address addr = init_addr(ip, DL_PORT, "/insert");
-    char *body = (char *) malloc(1000);
+    char *body = (char *) malloc(2048);
     prop_insert(&headers, "username", u.username, strlen(u.username));
     prop_insert(&headers, "password", u.password, strlen(u.password));
 
     if (body == NULL)
     {
-        free(table_storage);
         prop_clear(&headers);
         addr_clear(addr);
         return mem_error;
     }
 
-    load_body(body, TABLES_MOUNT, table_entity_prefix, kg_entity_prefix, progressive);
+    load_body(body, table_dir, hdfs_core_site, hdfs_site, table_entity_prefix, kg_entity_prefix, progressive);
 
     char *body_copy = (char *) realloc(body, strlen(body));
 
@@ -297,7 +236,6 @@ response load(const char *ip, user u, const char *storage_type, const char *tabl
 
     if (!init(&request, LOAD, addr, headers, body))
     {
-        free(table_storage);
         free(body);
         prop_clear(&headers);
         addr_clear(addr);
@@ -307,8 +245,6 @@ response load(const char *ip, user u, const char *storage_type, const char *tabl
     print(verbose, "Loading tables\n");
 
     response res = perform(request);
-    free(table_storage);
-
     free(body);
     prop_clear(&headers);
     addr_clear(addr);
