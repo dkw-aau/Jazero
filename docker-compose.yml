@@ -9,6 +9,8 @@ services:
     networks:
       jazero_network:
         - ipv4_address: 172.30.0.5
+      hdfs_network:
+        - ipv4_address: 10.5.0.4
     ports:
       - "8081:8081"
     volumes:
@@ -92,4 +94,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.31.0.0/24
+        - subnet: 10.5.0.0/16
