@@ -136,7 +136,7 @@ public class Configuration
         if (!props.contains("EKGManagerPort"))
             props.setProperty("EKGManagerPort", "8083");
 
-        if (props.contains("DBHost"))
+        if (!props.contains("DBHost"))
             props.setProperty("DBHost", "172.30.0.2");
 
         if (!props.contains("DBPort"))
