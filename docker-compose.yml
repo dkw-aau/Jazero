@@ -8,9 +8,8 @@ services:
     hostname: jazero-data-lake
     networks:
       jazero_network:
-        - ipv4_address: 172.30.0.5
+        ipv4_address: 172.30.0.5
       hdfs_network:
-        - ipv4_address: 10.5.0.4
     ports:
       - "8081:8081"
     volumes:
@@ -25,7 +24,7 @@ services:
     hostname: jazero-entity-linker
     networks:
       jazero_network:
-        - ipv4_address: 172.30.0.4
+        ipv4_address: 172.30.0.4
     ports:
       - "8082:8082"
     volumes:
@@ -39,7 +38,7 @@ services:
     hostname: jazero-ekg
     networks:
       jazero_network:
-        - ipv4_address: 172.30.0.3
+        ipv4_address: 172.30.0.3
     ports:
       - "8083:8083"
     volumes:
@@ -52,7 +51,7 @@ services:
     hostname: jazero-hostname
     networks:
       jazero_network:
-        - ipv4_address: 172.30.0.2
+        ipv4_address: 172.30.0.2
     ports:
       - "5432:5432"
     environment:
@@ -65,7 +64,7 @@ services:
     hostname: jazero-neo4j
     networks:
       jazero_network:
-        - ipv4_address: 172.30.0.1
+        ipv4_address: 172.30.0.6
     ports:
       - "7474:7474"
       - "7473:7473"
@@ -85,13 +84,10 @@ services:
       - NEO4J_apoc_import_file_use_neo4j_config=false
 networks:
   jazero_network:
-    external: true
-    ipam:
-      config:
-        - subnet: 172.30.0.0/24
-  hdfs_network:
-    external: true
     driver: bridge
     ipam:
       config:
-        - subnet: 10.5.0.0/16
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
+  hdfs_network:
+    external: true
