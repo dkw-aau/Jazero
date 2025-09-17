@@ -8,6 +8,7 @@
 #include "utils/file_utils.h"
 
 #define TABLES_MOUNT "/srv/storage/"
+#define INDEX_MOUNT "/index/"
 #define RELATIVE_TABLES ".tables"
 #define RELATIVE_INDEX "index/"
 
@@ -260,10 +261,10 @@ response load(const char *ip, user u, const char *jazero_dir, const char *table_
         return mem_error;
     }
 
-    strcpy(docker_hdfs_core_site, "/");
-    strcpy(docker_hdfs_core_site + 1, RELATIVE_INDEX);
-    strcpy(docker_hdfs_site, "/");
-    strcpy(docker_hdfs_site + 1, RELATIVE_INDEX);
+    strcpy(docker_hdfs_core_site, INDEX_MOUNT);
+    strcpy(docker_hdfs_core_site + strlen(INDEX_MOUNT), strrchr(hdfs_core_site, '/'));
+    strcpy(docker_hdfs_site, INDEX_MOUNT);
+    strcpy(docker_hdfs_site + strlen(INDEX_MOUNT), strrchr(hdfs_site, '/'));
     load_body(body, table_dir, docker_hdfs_core_site, docker_hdfs_site, table_entity_prefix, kg_entity_prefix, progressive);
 
     char *body_copy = (char *) realloc(body, strlen(body));
