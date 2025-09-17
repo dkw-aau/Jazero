@@ -348,7 +348,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         final String hdfsDir = "hdfs-directory", coreSite = "hdfs-core-site", hdfsSite = "hdfs-hdfs-site",
                 tablePrefixKey = "table-prefix", kgPrefixKey = "kg-prefix";
         File indexDir = new File(Configuration.getKGDir());
-        Set<String> missingKeys = new HashSet<>(Set.of("directory", "table-prefix", "kg-prefix"));
+        Set<String> missingKeys = new HashSet<>(Set.of(hdfsDir, coreSite, hdfsSite, tablePrefixKey, kgPrefixKey));
         missingKeys.removeAll(body.keySet());
 
         if (!indexDir.isDirectory())
