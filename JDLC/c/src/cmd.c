@@ -20,6 +20,8 @@
                 "-qt, --querytime : Maximum amount of seconds allowed to be spend on indexing before query execution (optional and only used during progressive indexing)\n" \
                 "\nkeyword\n" \
                 "-kw, --keywords : Keyword query string to search for KG entities\n" \
+                "\ninsert, insertembeddings\n" \
+                "-j, --jazerodir : Absolute path to Jazero directory on the machine running Jazero\n" \
                 "\ninsert\n" \
                 "-l, --location : HDFS path to table corpus directory on HDFS file system\n" \
                 "-hcf, --hdfs-core-site : Absolute path to the HDFS core site file on the Jazero server\n" \
@@ -28,7 +30,6 @@
                 "-i, --kgentityprefix : Prefix of KG entity IRIs\n" \
                 "-prog, --progressive : Enable progressive indexing ('true', 'false')\n" \
                 "\ninsertembeddings\n" \
-                "-j, --jazerodir : Absolute path to Jazero directory on the machine running Jazero\n" \
                 "-e, --embeddings : Absolute path to embeddings file on the machine running Jazero\n" \
                 "-d, --delimiter : Delimiter in embeddings file (see README)\n" \
                 "\nadduser\n" \
@@ -70,11 +71,11 @@ static response do_insert_embeddings(const char *ip, const char *username, const
     return insert_embeddings(ip, u, embeddings_file, delimiter, jazero_dir, 1);
 }
 
-static response do_load(const char *ip, const char *username, const char *password, const char *table_dir,
+static response do_load(const char *ip, const char *username, const char *password, const char *jazero_dir, const char *table_dir,
     const char *hdfs_core_site, const char *hdfs_site, const char *table_prefix, const char *kg_prefix, int progressive)
 {
     user u = create_user(username, password);
-    return load(ip, u, table_dir, hdfs_core_site, hdfs_site, table_prefix, kg_prefix, progressive, 1);
+    return load(ip, u, jazero_dir, table_dir, hdfs_core_site, hdfs_site, table_prefix, kg_prefix, progressive, 1);
 }
 
 static response do_search(const char *ip, const char *username, const char *password, const char *query_file,
@@ -508,14 +509,14 @@ int main(int argc, char *argv[])
             break;
 
         case LOAD:
-            if (args.table_loc == NULL || args.hdfs_core_site == NULL || args.hdfs_site == NULL)
+            if (args.table_loc == NULL || args.jazero_dir == NULL || args.hdfs_core_site == NULL || args.hdfs_site == NULL)
             {
-                ret = (response) {.status = REQUEST_ERROR, .msg = "Error: Missing any of the following parameters: HDFS table directory, HDFS core site file, HDFS site file"};
+                ret = (response) {.status = REQUEST_ERROR, .msg = "Error: Missing any of the following parameters: Jazero directory, HDFS table directory, HDFS core site file, HDFS site file"};
                 break;
             }
 
-            ret = do_load(args.host, args.this_username, args.this_password, args.table_loc, args.hdfs_core_site,
-                args.hdfs_site, args.table_prefix, args.kg_prefix, args.progressive);
+            ret = do_load(args.host, args.this_username, args.this_password, args.jazero_dir, args.table_loc,
+                args.hdfs_core_site, args.hdfs_site, args.table_prefix, args.kg_prefix, args.progressive);
             break;
 
         case SEARCH:

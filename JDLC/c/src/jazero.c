@@ -3,13 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
-#include <dirent.h>
 #include <connection/request.h>
 
 #include "utils/file_utils.h"
 
 #define TABLES_MOUNT "/srv/storage/"
 #define RELATIVE_TABLES ".tables"
+#define RELATIVE_INDEX "index/"
 
 const uint16_t DL_PORT = 8081;
 const uint16_t ENTITY_LINKER_PORT = 8082;
@@ -207,9 +207,11 @@ response insert_embeddings(const char *ip, user u, const char *embeddings_file, 
     return res;
 }
 
-response load(const char *ip, user u, const char *table_dir, const char *hdfs_core_site, const char *hdfs_site,
-        const char *table_entity_prefix, const char *kg_entity_prefix, uint8_t progressive, uint8_t verbose)
+response load(const char *ip, user u, const char *jazero_dir, const char *table_dir, const char *hdfs_core_site,
+        const char *hdfs_site, const char *table_entity_prefix, const char *kg_entity_prefix, uint8_t progressive, uint8_t verbose)
 {
+    char *index_dir = (char *) malloc(strlen(jazero_dir) + strlen(RELATIVE_INDEX) + 5);
+    char *jazero_dir_mod = (char *) malloc(strlen(jazero_dir) + 2);
     response mem_error = {.status = JAZERO_ERROR, .msg = "Ran out of memory"};
     struct properties headers = init_params_load();
     jdlc request;
@@ -218,14 +220,51 @@ response load(const char *ip, user u, const char *table_dir, const char *hdfs_co
     prop_insert(&headers, "username", u.username, strlen(u.username));
     prop_insert(&headers, "password", u.password, strlen(u.password));
 
-    if (body == NULL)
+    if (index_dir == NULL || jazero_dir_mod == NULL || body == NULL)
     {
         prop_clear(&headers);
         addr_clear(addr);
         return mem_error;
     }
 
-    load_body(body, table_dir, hdfs_core_site, hdfs_site, table_entity_prefix, kg_entity_prefix, progressive);
+    strcpy(jazero_dir_mod, jazero_dir);
+
+    if (jazero_dir[strlen(jazero_dir) - 1] == '/')
+    {
+        strcpy(jazero_dir_mod + strlen(jazero_dir), "/");
+    }
+
+    strcpy(index_dir, jazero_dir_mod);
+    strcpy(index_dir + strlen(jazero_dir_mod), RELATIVE_INDEX);
+
+    if (!copy_file(hdfs_core_site, index_dir) || !copy_file(hdfs_site, index_dir))
+    {
+        free(index_dir);
+        free(jazero_dir_mod);
+        free(body);
+        prop_clear(&headers);
+        addr_clear(addr);
+        return (response) {.status = JAZERO_ERROR, .msg = "Failed copying HDFS connection files to Jazero. Remove HDFS files from 'index/' if they exist."};
+    }
+
+    char *docker_hdfs_core_site = (char *) malloc(strlen(jazero_dir) + strlen(hdfs_core_site) + 5),
+            *docker_hdfs_site = (char *) malloc(strlen(jazero_dir) + strlen(hdfs_site) + 5);
+
+    if (docker_hdfs_core_site == NULL || docker_hdfs_site == NULL)
+    {
+        free(index_dir);
+        free(jazero_dir_mod);
+        free(body);
+        prop_clear(&headers);
+        addr_clear(addr);
+        return mem_error;
+    }
+
+    strcpy(docker_hdfs_core_site, "/");
+    strcpy(docker_hdfs_core_site + 1, RELATIVE_INDEX);
+    strcpy(docker_hdfs_site, "/");
+    strcpy(docker_hdfs_site + 1, RELATIVE_INDEX);
+    load_body(body, table_dir, docker_hdfs_core_site, docker_hdfs_site, table_entity_prefix, kg_entity_prefix, progressive);
 
     char *body_copy = (char *) realloc(body, strlen(body));
 
@@ -237,6 +276,10 @@ response load(const char *ip, user u, const char *table_dir, const char *hdfs_co
     if (!init(&request, LOAD, addr, headers, body))
     {
         free(body);
+        free(index_dir);
+        free(jazero_dir_mod);
+        free(docker_hdfs_core_site);
+        free(docker_hdfs_site);
         prop_clear(&headers);
         addr_clear(addr);
         return (response) {.status = JAZERO_ERROR, .msg = "Could not initialize Jazero INSERT request"};
@@ -246,6 +289,10 @@ response load(const char *ip, user u, const char *table_dir, const char *hdfs_co
 
     response res = perform(request);
     free(body);
+    free(index_dir);
+    free(jazero_dir_mod);
+    free(docker_hdfs_core_site);
+    free(docker_hdfs_site);
     prop_clear(&headers);
     addr_clear(addr);
     print(verbose, "Loading complete\n");
