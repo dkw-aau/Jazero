@@ -322,7 +322,7 @@ error_t parse(const char *key, const char *arg, struct arguments *args)
 
     else if (check_key(key, "-hs", "--hdfs-site"))
     {
-        args->hdfs_site = (char *) args;
+        args->hdfs_site = (char *) arg;
     }
 
     else if (check_key(key, "-j", "--jazerodir"))

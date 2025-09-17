@@ -229,7 +229,7 @@ response load(const char *ip, user u, const char *jazero_dir, const char *table_
 
     strcpy(jazero_dir_mod, jazero_dir);
 
-    if (jazero_dir[strlen(jazero_dir) - 1] == '/')
+    if (jazero_dir[strlen(jazero_dir) - 1] != '/')
     {
         strcpy(jazero_dir_mod + strlen(jazero_dir), "/");
     }
