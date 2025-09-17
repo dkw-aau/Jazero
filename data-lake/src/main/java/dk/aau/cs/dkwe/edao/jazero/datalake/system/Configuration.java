@@ -119,25 +119,25 @@ public class Configuration
             props.setProperty("DBPassword", "1234");
 
         if (!props.contains("SDLHost"))
-            props.setProperty("SDLHost", "localhost");
+            props.setProperty("SDLHost", "172.30.0.5");
 
         if (!props.contains("SDLPort"))
             props.setProperty("SDLPort", "8081");
 
         if (!props.contains("EntityLinkerHost"))
-            props.setProperty("EntityLinkerHost", "localhost");
+            props.setProperty("EntityLinkerHost", "172.30.0.4");
 
         if (!props.contains("EntityLinkerPort"))
             props.setProperty("EntityLinkerPort", "8082");
 
         if (!props.contains("EKGManagerHost"))
-            props.setProperty("EKGManagerHost", "localhost");
+            props.setProperty("EKGManagerHost", "172.30.0.3");
 
         if (!props.contains("EKGManagerPort"))
             props.setProperty("EKGManagerPort", "8083");
 
         if (props.contains("DBHost"))
-            props.setProperty("DBHost", "localhost");
+            props.setProperty("DBHost", "172.30.0.2");
 
         if (!props.contains("DBPort"))
             props.setProperty("DBPort", "5432");
