@@ -382,10 +382,10 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         }
 
         boolean isProgressive = Boolean.parseBoolean(body.getOrDefault("progressive", "false"));
-        File coreSiteFile = new File(body.get(coreSite)), hdfsSiteFile = new File(hdfsSite);
+        File hdfsDirFile = new File(body.get(hdfsDir)), coreSiteFile = new File(body.get(coreSite)), hdfsSiteFile = new File(hdfsSite);
         Configuration.setStorageType(StorageHandler.StorageType.HDFS);
         Configuration.setHdfsConfigFiles(coreSiteFile.getAbsolutePath(), hdfsSiteFile.getAbsolutePath());
-        Configuration.setHdfsDir(hdfsDir);
+        Configuration.setHdfsDir(hdfsDirFile.getAbsolutePath());
 
         if (this.indexLoadingInProgress)
         {
@@ -398,7 +398,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             KGService kgService = new KGService(Configuration.getEKGManagerHost(), Configuration.getEKGManagerPort());
             ELService elService = new ELService(Configuration.getEntityLinkerHost(), Configuration.getEntityLinkerPort());
             DBDriverBatch<List<Double>, String> embeddingStore = EmbeddingsFactory.fromConfig(false);
-            StorageHandler storage = new StorageHandler(hdfsDir, StorageHandler.StorageType.HDFS, coreSiteFile.getAbsolutePath(), hdfsSiteFile.getAbsolutePath());
+            StorageHandler storage = new StorageHandler(hdfsDirFile.getAbsolutePath(), StorageHandler.StorageType.HDFS, coreSiteFile.getAbsolutePath(), hdfsSiteFile.getAbsolutePath());
             int storageSize = storage.count();
             this.indexLoadingInProgress = true;
 
