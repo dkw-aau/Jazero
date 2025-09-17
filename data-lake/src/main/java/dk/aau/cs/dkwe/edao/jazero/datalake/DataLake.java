@@ -39,12 +39,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 @RestController
@@ -322,7 +318,6 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
         return query;
     }
 
-    // TODO: Insert all tables into storage first so we can iterate the storage when searching
     /**
      * POST request to load data lake
      * Make sure to only use this once as it will delete any previously loaded data
