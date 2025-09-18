@@ -26,7 +26,7 @@ public class HDFS implements Storage<File>, Closeable
 
         try
         {
-            File localDir = new File(LOCAL_DIR.toUri());
+            File localDir = new File(LOCAL_DIR.toString());
             this.hdfsDir = new Path(dir);
             this.fs = FileSystem.get(config);
 
