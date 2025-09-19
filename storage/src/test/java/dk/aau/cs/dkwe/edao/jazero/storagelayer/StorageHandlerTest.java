@@ -15,8 +15,8 @@ import static org.junit.Assert.assertTrue;
 
 public class StorageHandlerTest
 {
-    private StorageHandler handlerNative = new StorageHandler(StorageHandler.StorageType.NATIVE),
-            handlerHDFS = new StorageHandler(StorageHandler.StorageType.HDFS);
+    private StorageHandler handlerNative = new StorageHandler(StorageHandler.StorageType.NATIVE, "./"),
+            handlerHDFS = new StorageHandler(StorageHandler.StorageType.HDFS, "/tmp");
     private File source1 = new File("source1.txt"),
             source2 = new File("source2.txt"),
             source3 = new File("source3.txt");

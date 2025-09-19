@@ -6,23 +6,12 @@ import dk.aau.cs.dkwe.edao.jazero.storagelayer.layer.Storage;
 import org.apache.hadoop.fs.Path;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Predicate;
 
 public class StorageHandler implements Storage<File>
 {
-    private static final File STORAGE_DIR = new File("/srv/storage");
-
-    static
-    {
-        if (!STORAGE_DIR.exists() || !STORAGE_DIR.isDirectory())
-        {
-            STORAGE_DIR.mkdirs();
-        }
-    }
-
     public enum StorageType
     {
         NATIVE,
@@ -31,14 +20,16 @@ public class StorageHandler implements Storage<File>
 
     private final StorageType type;
     private final Storage<File> storage;
+    private final File tableDir;
 
-    public StorageHandler(StorageType storageType)
+    public StorageHandler(StorageType storageType, String tableDir)
     {
         this.type = storageType;
 
         if (this.type == StorageType.NATIVE)
         {
-            this.storage = new Disk(STORAGE_DIR);
+            this.tableDir = new File(tableDir);
+            this.storage = new Disk(this.tableDir);
         }
 
         else
@@ -51,6 +42,7 @@ public class StorageHandler implements Storage<File>
     {
         Path coreSite = new Path(coreSitePath), hdfsSite = new Path(hdfsSitePath);
         this.type = storageType;
+        this.tableDir = new File(hdfsSitePath);
 
         if (this.type == StorageType.HDFS)
         {
@@ -70,7 +62,7 @@ public class StorageHandler implements Storage<File>
 
     public File getStorageDirectory()
     {
-        return STORAGE_DIR;
+        return this.tableDir;
     }
 
     @Override

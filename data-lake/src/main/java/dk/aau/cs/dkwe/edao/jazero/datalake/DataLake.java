@@ -966,7 +966,7 @@ public class DataLake implements WebServerFactoryCustomizer<ConfigurableWebServe
             cellIds.next();
         }
 
-        StorageHandler storageHandler = new StorageHandler(Configuration.getStorageType());
+        StorageHandler storageHandler = new StorageHandler(Configuration.getStorageType(), Configuration.getHdfsDir());
         int tables = storageHandler.count();
         JsonObject json = new JsonObject();
         json.add("entities", new JsonPrimitive(entities));
