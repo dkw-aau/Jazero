@@ -14,7 +14,7 @@ public class HDFS implements Storage<File>, Closeable
     private final FileSystem fs;
     private final Path hdfsDir;
     private static final int BATCH_SIZE = 1000;
-    private static final Path LOCAL_DIR = new Path("/tmp");
+    private static final Path LOCAL_DIR = new Path("/tmp/tables/");
 
     public HDFS(String dir, Path coreSite, Path hdfsSite)
     {
