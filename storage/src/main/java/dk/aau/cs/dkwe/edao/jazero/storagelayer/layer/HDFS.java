@@ -1,5 +1,6 @@
 package dk.aau.cs.dkwe.edao.jazero.storagelayer.layer;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 
@@ -243,7 +244,7 @@ public class HDFS implements Storage<File>, Closeable
                     }
 
                     fs.copyToLocalFile(TMP_DOWNLOAD_DIR, LOCAL_DIR);
-                    this.downloadQueue.addAll(Files.list(new File(LOCAL_DIR.toString()).toPath())
+                    this.downloadQueue.addAll(Files.list(new File(LOCAL_DIR + TMP_DOWNLOAD_DIR.toString().substring(1)).toPath())
                             .map(java.nio.file.Path::toFile)
                             .collect(Collectors.toSet()));
                 }
@@ -268,14 +269,10 @@ public class HDFS implements Storage<File>, Closeable
             }
         }
 
-        private void clearDownloadDir()
+        private void clearDownloadDir() throws IOException
         {
-            File dir = new File(LOCAL_DIR.toString());
-
-            for (File f : Objects.requireNonNull(dir.listFiles()))
-            {
-                f.delete();
-            }
+            File dir = new File(LOCAL_DIR + TMP_DOWNLOAD_DIR.toString().substring(1));
+            FileUtils.deleteDirectory(dir);
         }
 
         private void clearTmpDir() throws IOException
