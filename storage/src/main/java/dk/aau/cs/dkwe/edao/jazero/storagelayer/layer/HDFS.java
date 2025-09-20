@@ -6,8 +6,10 @@ import org.apache.hadoop.fs.*;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class HDFS implements Storage<File>, Closeable
 {
@@ -191,10 +193,20 @@ public class HDFS implements Storage<File>, Closeable
         private final Iterator<FileStatus> iterator;
         private final Queue<File> downloadQueue = new LinkedList<>();
         private Predicate<File> filter = null;
+        private static final Path TMP_DOWNLOAD_DIR = new Path("/tmp_files/");
 
         private HDFSIterator(Iterator<FileStatus> iterator)
         {
-            this.iterator = iterator;
+            try
+            {
+                this.iterator = iterator;
+                fs.mkdirs(TMP_DOWNLOAD_DIR);
+            }
+
+            catch (IOException e)
+            {
+                throw new RuntimeException("IOException: " + e.getMessage());
+            }
         }
 
         private HDFSIterator(Iterator<FileStatus> iterator, Predicate<File> filter)
@@ -222,35 +234,32 @@ public class HDFS implements Storage<File>, Closeable
                 {
                     int i = 0;
                     clearDownloadDir();
+                    clearTmpDir();
 
                     while (this.iterator.hasNext() && i++ < BATCH_SIZE)
                     {
-                        Path path = this.iterator.next().getPath();
-                        fs.copyToLocalFile(path, LOCAL_DIR);
+                        Path srcPath = this.iterator.next().getPath(), destPath = new Path(TMP_DOWNLOAD_DIR, srcPath.getName());
+                        fs.rename(srcPath, destPath);
+                    }
 
-                        File file = new File(LOCAL_DIR + "/" + path.getName());
+                    fs.copyToLocalFile(TMP_DOWNLOAD_DIR, LOCAL_DIR);
+                    this.downloadQueue.addAll(Files.list(new File(LOCAL_DIR.toString()).toPath())
+                            .map(java.nio.file.Path::toFile)
+                            .collect(Collectors.toSet()));
+                }
 
-                        if (this.filter == null)
-                        {
-                            this.downloadQueue.add(file);
-                        }
+                File nextFile = this.downloadQueue.poll();
 
-                        else
-                        {
-                            if (this.filter.test(file))
-                            {
-                                this.downloadQueue.add(file);
-                            }
-
-                            else
-                            {
-                                file.delete();
-                            }
-                        }
+                if (this.filter != null)
+                {
+                    while (!this.filter.test(nextFile))
+                    {
+                        nextFile.delete();
+                        nextFile = this.downloadQueue.poll();
                     }
                 }
 
-                return this.downloadQueue.poll();
+                return nextFile;
             }
 
             catch (IOException e)
@@ -266,6 +275,14 @@ public class HDFS implements Storage<File>, Closeable
             for (File f : Objects.requireNonNull(dir.listFiles()))
             {
                 f.delete();
+            }
+        }
+
+        private void clearTmpDir() throws IOException
+        {
+            for (FileStatus status : fs.listStatus(TMP_DOWNLOAD_DIR))
+            {
+                fs.delete(status.getPath());
             }
         }
     }
