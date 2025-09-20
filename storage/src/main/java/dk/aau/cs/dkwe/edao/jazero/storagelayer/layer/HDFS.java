@@ -91,8 +91,8 @@ public class HDFS implements Storage<File>, Closeable
     {
         try
         {
-            RemoteIterator<LocatedFileStatus> iterator = this.fs.listFiles(this.hdfsDir, false);
-            return new HDFSIterator(iterator);
+            List<FileStatus> fileStatuses = List.of(this.fs.listStatus(this.hdfsDir));
+            return new HDFSIterator(fileStatuses.iterator());
         }
 
         catch (IOException e)
@@ -120,7 +120,8 @@ public class HDFS implements Storage<File>, Closeable
         try
         {
             Set<File> files = new HashSet<>();
-            Iterator<File> iterator = new HDFSIterator(this.fs.listFiles(this.hdfsDir, false), predicate);
+            List<FileStatus> fileStatuses = List.of(this.fs.listStatus(this.hdfsDir));
+            Iterator<File> iterator = new HDFSIterator(fileStatuses.iterator(), predicate);
 
             while (iterator.hasNext())
             {
@@ -187,16 +188,16 @@ public class HDFS implements Storage<File>, Closeable
 
     private class HDFSIterator implements Iterator<File>
     {
-        private final RemoteIterator<LocatedFileStatus> iterator;
+        private final Iterator<FileStatus> iterator;
         private final Queue<File> downloadQueue = new LinkedList<>();
         private Predicate<File> filter = null;
 
-        private HDFSIterator(RemoteIterator<LocatedFileStatus> iterator)
+        private HDFSIterator(Iterator<FileStatus> iterator)
         {
             this.iterator = iterator;
         }
 
-        private HDFSIterator(RemoteIterator<LocatedFileStatus> iterator, Predicate<File> filter)
+        private HDFSIterator(Iterator<FileStatus> iterator, Predicate<File> filter)
         {
             this(iterator);
             this.filter = filter;
@@ -205,15 +206,7 @@ public class HDFS implements Storage<File>, Closeable
         @Override
         public boolean hasNext()
         {
-            try
-            {
-                return !this.downloadQueue.isEmpty() || this.iterator.hasNext();
-            }
-
-            catch (IOException e)
-            {
-                throw new RuntimeException("Failed iterating HDFS directory", e);
-            }
+            return !this.downloadQueue.isEmpty() || this.iterator.hasNext();
         }
 
         /*
