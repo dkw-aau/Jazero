@@ -235,9 +235,14 @@ public class HDFS implements Storage<File>, Closeable
                         Path path = this.iterator.next().getPath();
                         fs.copyToLocalFile(path, LOCAL_DIR);
 
-                        File file = new File(LOCAL_DIR.getName() + "/" + path.getName());
+                        File file = new File(LOCAL_DIR + "/" + path.getName());
 
-                        if (this.filter != null)
+                        if (this.filter == null)
+                        {
+                            this.downloadQueue.add(file);
+                        }
+
+                        else
                         {
                             if (this.filter.test(file))
                             {
@@ -263,7 +268,7 @@ public class HDFS implements Storage<File>, Closeable
 
         private void clearDownloadDir()
         {
-            File dir = new File(LOCAL_DIR.toUri());
+            File dir = new File(LOCAL_DIR.toString());
 
             for (File f : Objects.requireNonNull(dir.listFiles()))
             {
