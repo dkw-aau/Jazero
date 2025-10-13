@@ -262,6 +262,7 @@ public class IndexWriter implements IndexIO
 
     private boolean load(Path tablePath)
     {
+        System.out.println("INDEXING " + tablePath);
         Table<String> table = TableParser.parse(tablePath.toFile());
 
         if (table == null)
