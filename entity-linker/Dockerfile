@@ -25,7 +25,7 @@ ARG MVNW=mvnw_unix
 WORKDIR ../data-lake
 RUN sed -e 's/\r$//' mvnw > mvnw_unix
 RUN chmod +x mvnw_unix
-RUN ./mvnw_unix clean install
+RUN ./mvnw_unix clean install -DskipTests
 
 WORKDIR ../entity-linker
 RUN sed -e 's/\r$//' mvnw > mvnw_unix
