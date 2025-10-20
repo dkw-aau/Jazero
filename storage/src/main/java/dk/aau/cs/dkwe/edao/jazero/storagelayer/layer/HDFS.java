@@ -260,6 +260,7 @@ public class HDFS implements Storage<File>, Closeable
                     }
                 }
 
+                System.out.println("NEXT FILE: " + nextFile);
                 return nextFile;
             }
 
