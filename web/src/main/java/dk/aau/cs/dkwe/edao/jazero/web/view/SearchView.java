@@ -434,9 +434,12 @@ public class SearchView extends VerticalLayout
 
     private Component buildParameters()
     {
-        VerticalLayout leftColumnLayout = new VerticalLayout();
+        VerticalLayout layout = new VerticalLayout();
         ComboBox<String> entitySimilarities = new ComboBox<>("Entity similarity");
         IntegerField topKField = new IntegerField("Top-K");
+        Checkbox prefilterBox = new Checkbox("Pre-filter (recommended)", true);
+        Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
+                prefilterBox.getValue()));
         entitySimilarities.setItems("RDF types", "Predicates", "Embeddings");
         entitySimilarities.setRenderer(new ComponentRenderer<>(item -> {
             Span span = new Span(item);
@@ -449,19 +452,13 @@ public class SearchView extends VerticalLayout
         topKField.setMax(500000);
         topKField.setValue(10);
         topKField.setStepButtonsVisible(true);
-        leftColumnLayout.add(entitySimilarities, topKField);
-
-        Checkbox prefilterBox = new Checkbox("Pre-filter (recommended)", true);
-        VerticalLayout rightColumnLayout = new VerticalLayout();
-        Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
-                prefilterBox.getValue()));
-        searchButton.setWidth("200px");
-        searchButton.setHeight("80px");
+        searchButton.setWidth("100px");
+        searchButton.setHeight("40px");
         searchButton.getStyle().set("background-color", "#57AF34");
         searchButton.setClassName("search-button");
-        rightColumnLayout.add(prefilterBox, searchButton);
+        layout.add(entitySimilarities, topKField, prefilterBox, searchButton);
 
-        return new HorizontalLayout(leftColumnLayout, rightColumnLayout);
+        return layout;
     }
 
     private List<String> keywordSearch(String query)
