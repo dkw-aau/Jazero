@@ -2,111 +2,195 @@ package dk.aau.cs.dkwe.edao.jazero.web.view;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.vaadin.componentfactory.Autocomplete;
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.*;
-import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H4;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.orderedlayout.*;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
-import com.vaadin.flow.data.renderer.ComponentRenderer;
-import com.vaadin.flow.internal.Pair;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import dk.aau.cs.dkwe.edao.connector.DataLake;
 import dk.aau.cs.dkwe.edao.connector.DataLakeService;
 import dk.aau.cs.dkwe.edao.jazero.communication.Response;
 import dk.aau.cs.dkwe.edao.jazero.datalake.search.Result;
 import dk.aau.cs.dkwe.edao.jazero.datalake.search.TableSearch;
+import dk.aau.cs.dkwe.edao.jazero.datalake.structures.Pair;
 import dk.aau.cs.dkwe.edao.jazero.datalake.structures.table.DynamicTable;
 import dk.aau.cs.dkwe.edao.jazero.datalake.structures.table.Table;
 import dk.aau.cs.dkwe.edao.jazero.datalake.system.User;
 import dk.aau.cs.dkwe.edao.jazero.web.Main;
+import dk.aau.cs.dkwe.edao.jazero.web.connector.MockDataLakeService;
 import dk.aau.cs.dkwe.edao.jazero.web.util.ConfigReader;
 import dk.aau.cs.dkwe.edao.structures.Query;
 import dk.aau.cs.dkwe.edao.structures.TableQuery;
 import org.springframework.web.servlet.View;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Route(value = "")
 @VaadinSessionScope
-public class SearchView extends VerticalLayout
+public class SearchView extends Div
 {
-    private final Main main;
+    private static final boolean DEBUG = false;
+    private DataLake dl;
     private String dataLake = null, dataLakeIp;
     private User user = null;
-    private Component header, selectDL, searchBar, statsComponent, resultComponent = null;
-    private Map<String, Integer> stats = null;
-    private final Grid<Pair<String, Integer>> entityCounts = new Grid<>();
-    private final List<List<StringBuilder>> query = new ArrayList<>();
-    private final VerticalLayout queryInputLayout = new VerticalLayout();
-    private Result result;
-    private static final boolean debug = false;
-    private static final Random random = new Random();
+    private final VerticalLayout root = new VerticalLayout();
+    private final ComboBox<String> dataLakeSelect = new ComboBox<>();
+
+    private EditableQueryTable queryTable = null;
+    private final Div enteredValuesList = new Div();
+
+    private final ComboBox<String> similaritySelect = new ComboBox<>("Similarity function");
+    private final IntegerField topKField = new IntegerField("Top-K");
+    private final Checkbox prefilterCheckbox = new Checkbox("Prefilter search space");
+
+    private final Button searchButton = new Button("Search");
+    private final Button clearResultsButton = new Button("Clear results");
+    private final Button searchStatsButton = new Button("Show search statistics", VaadinIcon.CHART.create());
+
+    private final Grid<Pair<Double, Table<String>>> resultsGrid = new Grid<>();
+    private Result currentResult;
 
     public SearchView(View error, Main main)
     {
-        setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+        this.root.setVisible(false);
+        this.root.setSizeFull();
+        this.root.setPadding(true);
+        this.root.setSpacing(true);
+        this.root.setAlignItems(FlexComponent.Alignment.STRETCH);
+        add(buildHeader());
 
-        this.header = buildHeader();
-        this.selectDL = buildSelectDataLake();
-        this.searchBar = buildSearchBar();
-        this.searchBar.setVisible(false);
-        add(this.header, this.selectDL, this.searchBar);
-        this.main = main;
-    }
+        this.searchButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        this.clearResultsButton.addThemeVariants(ButtonVariant.LUMO_ERROR);
+        this.searchStatsButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
 
-    private void loadDLStatistics()
-    {
-        this.stats = new HashMap<>();
+        this.queryTable = new EditableQueryTable((event, textField) -> {
+            String content = event.getValue();
+            textField.setOptions(keywordSearch(content));
+        }, (event, textField) -> renderEnteredValues());
 
-        if (debug)
-        {
-            int entities = Math.abs(random.nextInt()) % 10000000;
-            this.stats.put("Entities", entities);
-            this.stats.put("Types", (int) Math.ceil(entities * 3.8));
-            this.stats.put("Predicates", (int) Math.ceil(entities * 5.5));
-            this.stats.put("Embeddings", (int) Math.ceil(entities * 0.8));
-            this.stats.put("Linked cells", entities);
-            this.stats.put("Tables", (int) Math.ceil((double) entities / 175));
-            return;
-        }
-
-        try
-        {
-            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
-            Response response = dl.stats();
+        // Data lake selection
+        VerticalLayout selectDataLakeLayout = new VerticalLayout();
+        Button dataLakeStats = new Button(VaadinIcon.CHART.create(), event -> {
+            Response response = this.dl.stats();
 
             if (response.getResponseCode() != 200)
             {
-                this.stats = null;
+                Notification.show("Could not connect to data lake and retrieve statistics", 2500, Notification.Position.TOP_CENTER);
                 return;
             }
 
-            JsonObject json = JsonParser.parseString((String) response.getResponse()).getAsJsonObject();
-            this.stats.put("Entities", json.get("entities").getAsInt());
-            this.stats.put("Types", json.get("types").getAsInt());
-            this.stats.put("Predicates", json.get("predicates").getAsInt());
-            this.stats.put("Embeddings", json.get("embeddings").getAsInt());
-            this.stats.put("Linked cells", json.get("linked cells").getAsInt());
-            this.stats.put("Tables", json.get("tables").getAsInt());
-        }
+            String statsJson = (String) response.getResponse();
+            new DataLakeStatsDialog(this.dataLake + " Statistics", parseStatistics(statsJson)).open();
+        });
+        Set<String> dataLakes = ConfigReader.dataLakes();
+        dataLakeStats.setVisible(false);
+        this.dataLakeSelect.setItems(dataLakes);
+        this.dataLakeSelect.setClassName("combo-box");
+        this.dataLakeSelect.addValueChangeListener(e -> {
+            this.dataLake = e.getValue();
+            this.dataLakeIp = ConfigReader.getIp(this.dataLake);
+            this.user = new User(ConfigReader.getUsername(this.dataLake), ConfigReader.getPassword(this.dataLake), false);
+            this.dl = DEBUG ? new MockDataLakeService() : new DataLakeService(this.dataLakeIp, this.user);
+            Notification.show("Connected to '" + e.getValue() + "'", 2000, Notification.Position.TOP_CENTER);
+            this.root.setVisible(true);
+            dataLakeStats.setVisible(true);
+            dataLakeStats.setText(this.dataLake + " Statistics");
+        });
+        this.dataLakeSelect.setPlaceholder("Select Data Lake");
+        selectDataLakeLayout.add(new H2("Select Data Lake"), this.dataLakeSelect, dataLakeStats);
+        selectDataLakeLayout.addClassNames(LumoUtility.AlignItems.CENTER, LumoUtility.AlignContent.CENTER,
+                LumoUtility.JustifyContent.CENTER);
+        add(selectDataLakeLayout);
 
-        catch (Exception ignored) {}
+        // Query table
+        HorizontalLayout enteredHeader = new HorizontalLayout(new H4("Entity Counts"));
+        Card queryCard = new Card(), entityCountsCard = new Card();
+        queryCard.addClassName("glass-card");
+        entityCountsCard.addClassName("glass-card");
+        queryCard.add(new H4("Query Table"), this.queryTable);
+        entityCountsCard.add(enteredHeader, this.enteredValuesList);
+        this.root.add(queryCard, entityCountsCard);
+
+        // Parameters
+        this.similaritySelect.setItems("RDF Types", "RDF Predicates", "Embeddings");
+        this.similaritySelect.setPlaceholder("Select similarity");
+        this.similaritySelect.setValue("RDF Types");
+        this.topKField.setMin(1);
+        this.topKField.setStep(1);
+        this.topKField.setValue(10);
+        this.topKField.setWidth("120px");
+        this.topKField.setStepButtonsVisible(true);
+        this.prefilterCheckbox.setValue(false);
+
+        // Search controls
+        HorizontalLayout searchControls = new HorizontalLayout(this.clearResultsButton, this.searchStatsButton);
+        this.clearResultsButton.addClickListener(e -> clearResults());
+        this.searchStatsButton.addClickListener(e -> {
+            if (this.dataLake == null)
+            {
+                Notification.show("Select a data lake first", 2500, Notification.Position.TOP_CENTER);
+                return;
+            }
+
+            new SearchStatsDialog(this.currentResult.getReduction(), this.currentResult.getRuntime()).open();
+        });
+
+        // Results grid
+        Card resultsCard = new Card();
+        resultsCard.addClassName("glass-card");
+        this.resultsGrid.addClassName("results-grid");
+        configureResultsGrid();
+        resultsCard.add(new H4("Results"), searchControls, this.resultsGrid);
+        resultsCard.setVisible(false);
+
+        FormLayout paramsLayout = new FormLayout(this.similaritySelect, this.topKField, this.prefilterCheckbox, this.searchButton);
+        paramsLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("600px", 3));
+
+        Card parameterCard = new Card();
+        parameterCard.addClassName("glass-card");
+        this.searchButton.addClickListener(e -> {
+            executeSearch();
+            resultsCard.setVisible(true);
+        });
+        parameterCard.add(new H4("Parameters"), paramsLayout);
+        this.root.add(parameterCard, resultsCard);
+        add(this.root);
+    }
+
+    private Query parseQuery()
+    {
+        Table<String> queryAsTable = new DynamicTable<>(this.queryTable.generateModelValue());
+        return new TableQuery(queryAsTable);
+    }
+
+    private static Map<String, Integer> parseStatistics(String jsonStr)
+    {
+        Map<String, Integer> stats = new HashMap<>();
+        JsonObject json = JsonParser.parseString(jsonStr).getAsJsonObject();
+        stats.put("Entities", json.get("entities").getAsInt());
+        stats.put("Types", json.get("types").getAsInt());
+        stats.put("Predicates", json.get("predicates").getAsInt());
+        stats.put("Embeddings", json.get("embeddings").getAsInt());
+        stats.put("Linked cells", json.get("linked cells").getAsInt());
+        stats.put("Tables", json.get("tables").getAsInt());
+
+        return stats;
     }
 
     private static Component buildHeader()
@@ -133,539 +217,145 @@ public class SearchView extends VerticalLayout
         return header;
     }
 
-    private Component buildSelectDataLake()
+    private void renderEnteredValues()
     {
-        VerticalLayout layout = new VerticalLayout();
-        H2 label = new H2("Select Data Lake");
-        ComboBox<String> dataLakes = new ComboBox<>("Data lake");
-        dataLakes.setItems(ConfigReader.dataLakes());
-        dataLakes.setRenderer(new ComponentRenderer<>(item -> {
-            Span span = new Span(item);
-            span.addClassNames("drop-down-items");
-            return span;
-        }));
-        dataLakes.setClassName("combo-box");
-        dataLakes.addValueChangeListener(event -> {
-            this.dataLake = dataLakes.getValue();
-            this.searchBar.setVisible(true);
-            this.dataLakeIp = ConfigReader.getIp(this.dataLake);
-            this.user = new User(ConfigReader.getUsername(this.dataLake), ConfigReader.getPassword(this.dataLake), false);
-            loadDLStatistics();
-            this.statsComponent.setVisible(true);
-        });
-        this.statsComponent = new Button(new Icon(VaadinIcon.INFO_CIRCLE), statsEvent -> {
-            Dialog stats = new Dialog("Statistics");
-            VerticalLayout statsLayout = new VerticalLayout();
-
-            for (Map.Entry<String, Integer> stat : this.stats.entrySet())
-            {
-                HorizontalLayout statLayout = new HorizontalLayout();
-                H4 text = new H4(stat.getKey() + ": " + stat.getValue());
-                statLayout.add(text);
-                statsLayout.add(statLayout);
-            }
-
-            Button closeButton = new Button(new Icon("lumo", "cross"), buttonEvent -> stats.close());
-            statsLayout.setAlignItems(FlexComponent.Alignment.END);
-            statsLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
-            stats.add(statsLayout);
-            stats.getHeader().add(closeButton);
-            stats.open();
-        });
-        this.statsComponent.setVisible(false);
-        layout.add(label, dataLakes, this.statsComponent);
-        layout.addClassNames(LumoUtility.AlignItems.CENTER, LumoUtility.AlignContent.CENTER,
-                LumoUtility.JustifyContent.CENTER);
-
-        return layout;
-    }
-
-    private Component buildSearchBar()
-    {
-        Component queryInput = buildQueryInput();
-        Component entityCounts = buildEntityCounts();
-        Component parameterComponent = buildParameters();
-
-        return new VerticalLayout(queryInput, new HorizontalLayout(entityCounts, parameterComponent));
-    }
-
-    private Component buildQueryInput()
-    {
-        HorizontalLayout header = new HorizontalLayout();
-        H2 label = new H2("Input Query");
-        label.addClassNames(LumoUtility.FontWeight.BOLD);
-        initializeQueryTable();
-        buildQueryTable();
-
-        Icon addRowIcon = new Icon(VaadinIcon.CHEVRON_DOWN), removeRowIcon = new Icon(VaadinIcon.CHEVRON_UP),
-                addColumnIcon = new Icon(VaadinIcon.CHEVRON_RIGHT), removeColumnIcon = new Icon(VaadinIcon.CHEVRON_LEFT);
-        addRowIcon.setColor("#3D423F");
-        removeRowIcon.setColor("#3D423F");
-        addColumnIcon.setColor("#3D423F");
-        removeColumnIcon.setColor("#3D423F");
-
-        Scroller queryScroller = new Scroller(this.queryInputLayout);
-        Button addRowButton = new Button(new HorizontalLayout(addRowIcon, new H4("Add row")), item -> addRow());
-        Button removeRowButton = new Button(new HorizontalLayout(removeRowIcon, new H4("Remove row")), item -> removeRow());
-        Button addColumnButton = new Button(new HorizontalLayout(addColumnIcon, new H4("Add column")), item -> addColumn());
-        Button removeColumnButton = new Button(new HorizontalLayout(removeColumnIcon, new H4("Remove column")), item -> removeColumn());
-        Button clearQueryButton = new Button("Clear query", event -> clearQueryTable());
-        addRowButton.getStyle().set("background-color", "#D1D5D9");
-        removeRowButton.getStyle().set("background-color", "#D1D5D9");
-        addColumnButton.getStyle().set("background-color", "#D1D5D9");
-        removeColumnButton.getStyle().set("background-color", "#D1D5D9");
-        clearQueryButton.getStyle().set("margin-left", "100px");
-        clearQueryButton.getStyle().set("background-color", "#FD7B7C");
-        clearQueryButton.getStyle().set("--vaadin-button-text-color", "white");
-        queryScroller.setMaxWidth("1200px");
-        queryScroller.setMinWidth("650px");
-        queryScroller.setMaxHeight("350px");
-        header.add(label, clearQueryButton);
-
-        HorizontalLayout rowButtonsLayout = new HorizontalLayout(addRowButton, removeRowButton);
-        VerticalLayout columnButtonsLayout = new VerticalLayout(addColumnButton, removeColumnButton);
-        HorizontalLayout mainHorizontalLayout = new HorizontalLayout(queryScroller, columnButtonsLayout);
-        VerticalLayout mainVerticalLayout = new VerticalLayout(mainHorizontalLayout, rowButtonsLayout);
-        VerticalLayout mainLayout = new VerticalLayout(header, mainVerticalLayout);
-
-        return new FlexLayout(mainLayout);
-    }
-
-    private void initializeQueryTable()
-    {
-        int rows = 3, columns = 3;
-
-        for (int i = 0; i < rows; i++)
-        {
-            List<StringBuilder> column = new ArrayList<>();
-
-            for (int j = 0; j < columns; j++)
-            {
-                column.add(new StringBuilder());
-            }
-
-            this.query.add(column);
-        }
-    }
-
-    private void clearQueryTable()
-    {
-        this.query.clear();
-        updateEntityCounts();
-        initializeQueryTable();
-        buildQueryTable();
-    }
-
-    private void setQuery(Table<String> table)
-    {
-        int rows = table.rowCount();
-        this.query.clear();
-
-        for (int row = 0; row < rows; row++)
-        {
-            Table.Row<String> tableRow = table.getRow(row);
-            int columns = tableRow.size();
-            List<StringBuilder> columnItems = new ArrayList<>();
-
-            for (int column = 0; column < columns; column++)
-            {
-                String cell = table.getRow(row).get(column);
-                List<String> links = keywordSearch(cell);
-
-                if (!links.isEmpty())
-                {
-                    columnItems.add(new StringBuilder(links.get(0)));
-                }
-
-                else
-                {
-                    columnItems.add(new StringBuilder());
-                }
-            }
-
-            if (columnItems.stream().noneMatch(CharSequence::isEmpty))
-            {
-                this.query.add(columnItems);
-            }
-        }
-
-        if (!this.query.isEmpty())
-        {
-            for (int i = 0; i < this.query.get(0).size(); i++)
-            {
-                int column = i;
-
-                if (this.query.stream().allMatch(row -> row.get(column).isEmpty()))
-                {
-                    this.query.forEach(row -> row.remove(column));
-                }
-            }
-        }
-
-        updateEntityCounts();
-        buildQueryTable();
-    }
-
-    private void buildQueryTable()
-    {
-        VerticalLayout tableRowLayout = new VerticalLayout();
-        int rows = this.query.size();
-
-        for (int row = 0; row < rows; row++)
-        {
-            HorizontalLayout tableColumnLayout = new HorizontalLayout();
-            int columns = this.query.get(row).size();
-
-            for (int column = 0; column < columns; column++)
-            {
-                int rowCoordinate = row, columnCoordinate = column;
-                Autocomplete textField = new Autocomplete();
-                String cellContent = this.query.get(row).get(column).toString();
-                textField.setValue(cellContent);
-                textField.getStyle().set("font-family", "Courier New");
-                textField.addChangeListener(event -> {
-                    String content = event.getValue();
-                    textField.setOptions(keywordSearch(content));
-                });
-                textField.addAutocompleteValueAppliedListener(event -> {
-                    String content = event.getValue().replace(" ", "");
-                    int oldContentLength = this.query.get(rowCoordinate).get(columnCoordinate).length();
-                    this.query.get(rowCoordinate).get(columnCoordinate).replace(0, oldContentLength, content);
-                    updateEntityCounts();
-                });
-                tableColumnLayout.add(textField);
-            }
-
-            tableRowLayout.add(tableColumnLayout);
-        }
-
-        this.queryInputLayout.removeAll();
-        this.queryInputLayout.add(tableRowLayout);
-    }
-
-    private void addRow()
-    {
-        int columns = !this.query.isEmpty() ? this.query.get(0).size() : 3;
-        List<StringBuilder> newRow = new ArrayList<>(columns);
-
-        for (int column = 0; column < columns; column++)
-        {
-            newRow.add(new StringBuilder());
-        }
-
-        this.query.add(newRow);
-        buildQueryTable();
-    }
-
-    private void removeRow()
-    {
-        if (this.query.size() > 1)
-        {
-            this.query.remove(this.query.size() - 1);
-            buildQueryTable();
-        }
-    }
-
-    private void addColumn()
-    {
-        int rows = this.query.size();
-
-        for (int row = 0; row < rows; row++)
-        {
-            this.query.get(row).add(new StringBuilder());
-        }
-
-        buildQueryTable();
-    }
-
-    private void removeColumn()
-    {
-        if (this.query.get(0).size() > 1)
-        {
-            int rows = this.query.size();
-
-            for (int row = 0; row < rows; row++)
-            {
-                this.query.get(row).remove(this.query.get(row).size() - 1);
-            }
-
-            buildQueryTable();
-        }
-    }
-
-    private Component buildEntityCounts()
-    {
-        H3 label = new H3("Entity counts");
-        label.addClassNames(LumoUtility.FontWeight.BOLD);
-        updateEntityCounts();
-
-        return new VerticalLayout(label, this.entityCounts);
-    }
-
-    private void updateEntityCounts()
-    {
-        this.entityCounts.removeAllColumns();
-        this.entityCounts.addComponentColumn(item -> {
-            VerticalLayout layout = new VerticalLayout();
-            Html entity = new Html("<div><b>Entity</b>" + item.getFirst() + "</div>"),
-                    count = new Html("<div><b>Count</b>" + item.getSecond() + "</div>");
-            layout.add(entity, count);
-
-            return layout;
-        }).setHeader("Entity counts").setVisible(false);
-
-        try
-        {
-            this.entityCounts.addColumn(pair -> {
-                String[] entityTokens = pair.getFirst().split("/");
-                return entityTokens[entityTokens.length - 1];
-            }).setHeader("Entity");
-            this.entityCounts.addColumn(Pair::getSecond).setHeader("Count");
-            this.entityCounts.setItems(tableContents());
-            this.entityCounts.setWidth("600px");
-        }
-
-        catch (RuntimeException e)
-        {
-            Dialog errorDialog = errorDialog(e.getMessage());
-            errorDialog.open();
-        }
-    }
-
-    private Component buildParameters()
-    {
-        VerticalLayout layout = new VerticalLayout();
-        ComboBox<String> entitySimilarities = new ComboBox<>("Entity similarity");
-        IntegerField topKField = new IntegerField("Top-K");
-        Checkbox prefilterBox = new Checkbox("Pre-filter (recommended)", true);
-        Button searchButton = new Button("Search", event -> search(topKField.getValue(), entitySimilarities.getValue(),
-                prefilterBox.getValue()));
-        entitySimilarities.setItems("RDF types", "Predicates", "Embeddings");
-        entitySimilarities.setRenderer(new ComponentRenderer<>(item -> {
-            Span span = new Span(item);
-            span.addClassNames("drop-down-items");
-            return span;
-        }));
-        entitySimilarities.setClassName("combo-box");
-        topKField.setRequiredIndicatorVisible(true);
-        topKField.setMin(1);
-        topKField.setMax(500000);
-        topKField.setValue(10);
-        topKField.setStepButtonsVisible(true);
-        searchButton.setWidth("100px");
-        searchButton.setHeight("40px");
-        searchButton.getStyle().set("background-color", "#57AF34");
-        searchButton.setClassName("search-button");
-        layout.add(entitySimilarities, topKField, prefilterBox, searchButton);
-
-        return layout;
-    }
-
-    private List<String> keywordSearch(String query)
-    {
-        try
-        {
-            if (debug)
-            {
-                query = query.toLowerCase();
-                TimeUnit.MILLISECONDS.sleep(300);
-
-                if (query.startsWith("m"))
-                {
-                    return List.of("https://dbpedia.org/page/MERS", "https://dbpedia.org/page/Measles", "https://dbpedia.org/page/Malaria", "https://dbpedia.org/page/Middle_East");
-                }
-
-                else if (query.startsWith("z"))
-                {
-                    return List.of("https://dbpedia.org/page/Zanamivir");
-                }
-
-                else if (query.startsWith("o"))
-                {
-                    return List.of("https://dbpedia.org/page/Oseltamivir");
-                }
-
-                else if (query.startsWith("r"))
-                {
-                    return List.of("https://dbpedia.org/page/Rhinovirus", "https://dbpedia.org/page/Rabies", "https://dbpedia.org/page/Respiratory_system", "https://dbpedia.org/page/Respiratory_syncytial_virus");
-                }
-
-                else if (query.startsWith("b"))
-                {
-                    return List.of("https://dbpedia.org/page/Baloxavir", "https://dbpedia.org/page/Bird", "https://dbpedia.org/page/Bat", "https://dbpedia.org/page/Bronchitis");
-                }
-
-                else if (query.startsWith("c"))
-                {
-                    return List.of("https://dbpedia.org/page/Chimpanzee", "https://dbpedia.org/page/Cancer", "https://dbpedia.org/page/Cholera");
-                }
-
-                else if (query.startsWith("i"))
-                {
-                    return List.of("https://dbpedia.org/page/Influenza", "https://dbpedia.org/page/Italy", "https://dbpedia.org/page/India");
-                }
-
-                else if (query.startsWith("sa"))
-                {
-                    return List.of("https://dbpedia.org/page/SARS");
-                }
-
-                else if (query.startsWith("sw"))
-                {
-                    return List.of("https://dbpedia.org/page/Switzerland");
-                }
-
-                else if (query.startsWith("un"))
-                {
-                    return List.of("https://dbpedia.org/page/University_of_Basel");
-                }
-
-                else if (query.startsWith("u"))
-                {
-                    return List.of("https://dbpedia.org/page/USA");
-                }
-
-                else if (query.startsWith("ad"))
-                {
-                    return List.of("https://dbpedia.org/page/Adenovirus");
-                }
-
-                else if (query.startsWith("a"))
-                {
-                    return List.of("https://dbpedia.org/page/AOU");
-                }
-
-                else if (query.startsWith("p"))
-                {
-                    return List.of("https://dbpedia.org/page/Peramivir");
-                }
-
-                else if (query.startsWith("g"))
-                {
-                    return List.of("https://dbpedia.org/page/GlaxoSmithKline");
-                }
-
-                return List.of();
-            }
-
-            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
-            Response res = dl.keywordSearch(query);
-
-            if (res.getResponseCode() != 200)
-            {
-                return new ArrayList<>();
-            }
-
-            List<String> entities = (List<String>) res.getResponse();
-            entities = entities.stream().map(entity -> entity.replaceAll("\\s+", "").replace("\"", "")).toList();
-
-            return entities;
-        }
-
-        catch (Exception e)
-        {
-            return new ArrayList<>();
-        }
-    }
-
-    private int count(String entity)
-    {
-        if (debug)
-        {
-            return Math.abs(random.nextInt() % 100000);
-        }
-
-        else if (this.dataLake == null)
-        {
-            Dialog errorDialog = errorDialog("Please select a data lake");
-            errorDialog.open();
-
-            return -1;
-        }
-
-        else if (debug)
-        {
-            return -1;
-        }
-
-        DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
-        return Integer.parseInt((String) dl.count(entity).getResponse());
-    }
-
-    private void search(int topK, String entitySimilarity, boolean prefilter)
-    {
-        if (topK <= 0 || entitySimilarity == null || dataLake == null)
+        List<List<String>> queryTable = this.queryTable.generateModelValue();
+        var nonEmpty = new ArrayList<Map.Entry<String, String>>();
+        Div list = new Div();
+        this.enteredValuesList.removeAll();
+
+        if (queryTable == null)
         {
             return;
         }
 
-        TableSearch.EntitySimilarity similarity;
+        for (var row : queryTable)
+        {
+            for (var cell : row)
+            {
+                if (cell != null && !cell.isBlank())
+                {
+                    Response countResponse = this.dl.count(cell);
+
+                    if (countResponse.getResponseCode() == 200)
+                    {
+                        nonEmpty.add(Map.entry(cell.replace(" ", ""), (String) countResponse.getResponse()));
+                    }
+                }
+            }
+        }
+
+        if (nonEmpty.isEmpty())
+        {
+            this.enteredValuesList.add(new Div(new Div(new H4("No values entered."))));
+            return;
+        }
+
+        for (var entry : nonEmpty)
+        {
+            list.add(new Div(new Div(entry.getKey() + " — " + entry.getValue())));
+        }
+
+        this.enteredValuesList.add(list);
+    }
+
+    private void executeSearch()
+    {
+        if (this.dataLake == null)
+        {
+            Notification.show("Select a data lake first", 2500, Notification.Position.TOP_CENTER);
+            return;
+        }
+        if (this.similaritySelect.getValue() == null)
+        {
+            Notification.show("Select a similarity function", 2500, Notification.Position.TOP_CENTER);
+            return;
+        }
+
+        Integer k = this.topKField.getValue();
+
+        if (k == null || k < 1)
+        {
+            Notification.show("Top-K must be >= 1", 2500, Notification.Position.TOP_CENTER);
+            return;
+        }
+
         Query query = parseQuery();
-
-        if (entitySimilarity.equals("Embeddings"))
+        boolean prefilter = this.prefilterCheckbox.getValue();
+        TableSearch.EntitySimilarity entitySimilarity = switch (this.similaritySelect.getValue())
         {
-            similarity = TableSearch.EntitySimilarity.EMBEDDINGS_ABS;
+            case "RDF types": yield TableSearch.EntitySimilarity.JACCARD_TYPES;
+            case "RDF Predicates": yield TableSearch.EntitySimilarity.JACCARD_PREDICATES;
+            case "Embeddings": yield TableSearch.EntitySimilarity.EMBEDDINGS_ABS;
+            default: yield null;
+        };
+        this.currentResult = this.dl.search(query, k, entitySimilarity, prefilter);
+        this.resultsGrid.setItems(this.currentResult.getTables());
+    }
+
+    private List<String> keywordSearch(String query)
+    {
+        Response res = this.dl.keywordSearch(query);
+
+        if (res.getResponseCode() != 200)
+        {
+            return new ArrayList<>();
         }
 
-        else if (entitySimilarity.equals("RDF types"))
-        {
-            similarity = TableSearch.EntitySimilarity.JACCARD_TYPES;
-        }
+        List<String> entities = (List<String>) res.getResponse();
+        entities = entities.stream().map(entity -> entity.replaceAll("\\s+", "").replace("\"", "")).toList();
 
-        else if (entitySimilarity.equals("Predicates"))
-        {
-            similarity = TableSearch.EntitySimilarity.JACCARD_PREDICATES;
-        }
+        return entities;
+    }
 
-        else
-        {
-            throw new RuntimeException("Not recognized: (" + entitySimilarity + ")");
-        }
+    private void clearResults()
+    {
+        this.currentResult = null;
+        this.resultsGrid.getDataProvider().refreshAll();
+    }
 
-        try
-        {
-            if (debug)
+    private void configureResultsGrid()
+    {
+        this.resultsGrid.addColumn(v -> v.second().getId()).setHeader("Table Name").setAutoWidth(true).setFlexGrow(1);
+        this.resultsGrid.addColumn(Pair::first).setHeader("Relevance").setAutoWidth(true).setFlexGrow(0);
+        this.resultsGrid.addComponentColumn(rt -> {
+            // Snippet table as a small grid
+            Grid<List<String>> snippetGrid = new Grid<>();
+            int maxCols = Math.min(rt.second().columnCount(), 3);
+
+            for (int c = 0; c < maxCols; c++)
             {
-                this.result = parseDebugResult();
-                refreshResults();
-                return;
+                final int idx = c;
+                snippetGrid.addColumn(row -> idx < row.size() ? row.get(idx) : "").setHeader("Col " + (c+1));
             }
 
-            DataLakeService dl = new DataLakeService(this.dataLakeIp, this.user);
-            Response pingResponse = dl.ping();
+            snippetGrid.setItems(rt.second().toList());
+            snippetGrid.setAllRowsVisible(true);
+            snippetGrid.addItemClickListener(ev -> {
+                // Clicking a snippet row opens full table dialog
+                new TablePreviewDialog(rt.second().getId(), rt.second().toList()).open();
+            });
 
-            if (pingResponse.getResponseCode() != 200)
-            {
-                throw new RuntimeException("Connection error");
-            }
+            return snippetGrid;
+        }).setHeader("Table Snippet").setFlexGrow(2);
 
-            this.result = dl.search(query, topK, similarity, prefilter);
-            refreshResults();
-        }
+        this.resultsGrid.addComponentColumn(rt -> {
+            Button useAsQuery = new Button("Use as query", VaadinIcon.UPLOAD.create());
+            useAsQuery.addClickListener(e -> setQueryTable(rt.second()));
 
-        catch (RuntimeException e)
-        {
-            Dialog errorDialog = errorDialog(e.getMessage());
-            errorDialog.open();
-        }
+            Button showStats = new Button("Show table statistics", VaadinIcon.CHART.create());
+            showStats.addClickListener(e -> {
+                Map<String, Integer> stats = this.dataLake != null ? tableStats(rt.second()) : Map.of();
+                new TableStatsDialog("Table statistics: " + rt.second().getId(), stats).open();
+            });
+
+            return new VerticalLayout(useAsQuery, showStats);
+        }).setHeader("Actions").setFlexGrow(1);
     }
 
     private Map<String, Integer> tableStats(Table<String> table)
     {
         Map<String, Integer> stats = new TreeMap<>();
-
-        if (debug)
-        {
-            int entities = (int) Math.ceil(table.rowCount() * table.columnCount() * 0.277);
-            stats.put("Entities", entities);
-            stats.put("Types", 6869);
-            stats.put("Predicates", 10050);
-            stats.put("Embeddings", 32440283);
-            stats.put("Table rows", table.rowCount());
-            stats.put("Table columns", table.columnCount());
-
-            return stats;
-        }
 
         try
         {
@@ -694,251 +384,53 @@ public class SearchView extends VerticalLayout
         }
     }
 
-    private Query parseQuery()
+    private void setQueryTable(Table<String> table)
     {
-        List<List<String>> queryAsList = this.query.stream().map(row -> row.stream()
-                .map(StringBuilder::toString)
-                .collect(Collectors.toList())).toList();
-        Table<String> queryAsTable = new DynamicTable<>(queryAsList);
-
-        return new TableQuery(queryAsTable);
-    }
-
-    private void refreshResults()
-    {
-        clearResults();
-
-        this.resultComponent = buildResults();
-        add(this.resultComponent);
-    }
-
-    private void clearResults()
-    {
-        if (this.resultComponent != null)
-        {
-            remove(this.resultComponent);
-            this.resultComponent = null;
-        }
-    }
-
-    private Component buildResults()
-    {
-        VerticalLayout resultLayout = new VerticalLayout();
-        HorizontalLayout resultHeader = new HorizontalLayout(), subHeader = new HorizontalLayout();
-        Section resultSection = new Section();
-        Component resultsList = buildResultsList();
-        H1 resultLabel = new H1("Results");
-        H2 topKLabel = new H2("Top-" + this.result.getSize());
-        Dialog stats = statsDialog();
-        Button clearButton = new Button("Clear", event -> clearResults()),
-                statsButton = new Button("Statistics", event -> stats.open());
-        Button downloadResultsButton =
-                new Button(downloadContent("results.json", "Download result", this.result.toString().getBytes()));
-        clearButton.getStyle().set("margin-left", "20px");
-        clearButton.getStyle().set("background-color", "#FD7B7C");
-        clearButton.getStyle().set("--vaadin-button-text-color", "white");
-        statsButton.getStyle().set("background-color", "#00669E");
-        statsButton.getStyle().set("--vaadin-button-text-color", "white");
-        downloadResultsButton.getStyle().set("background-color", "#82EC9E");
-        downloadResultsButton.getStyle().set("--vaadin-button-text-color", "white");
-        resultHeader.add(resultLabel, clearButton);
-        subHeader.add(statsButton, downloadResultsButton);
-        resultLayout.add(resultHeader, subHeader, topKLabel, resultsList);
-        resultLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-        resultLayout.addClassNames(LumoUtility.AlignItems.CENTER, LumoUtility.JustifyContent.CENTER, LumoUtility.Display.FLEX);
-        clearResults();
-        resultSection.add(resultLayout);
-
-        Scroller scroller = new Scroller(new Div(resultSection));
-        scroller.getStyle().set("border-top", "2px solid #ccc");
-        scroller.setWidthFull();
-        scroller.addClassNames(LumoUtility.AlignItems.CENTER, LumoUtility.JustifyContent.CENTER, LumoUtility.Display.FLEX);
-
-        return scroller;
-    }
-
-    private Component buildResultsList()
-    {
-        VerticalLayout layout = new VerticalLayout();
-
-        for (var resultTable : this.result.getTables())
-        {
-            double score = resultTable.first();
-            Table<String> table = resultTable.second();
-            H3 tableIdLabel = new H3(table.getId().replace(".json", "") + " (score: " + score + ")");
-            HorizontalLayout iconLayout = new HorizontalLayout(new Icon(VaadinIcon.ELLIPSIS_DOTS_V));
-
-            Div tableSnippet = new Div(tableSnippet(table), iconLayout);
-            tableSnippet.addClickListener(event -> {
-                Button downloadTableButton = new Button(downloadContent("table.txt", "Download table",
-                        table.toStr().getBytes()));
-                downloadTableButton.getStyle().set("background-color", "#82EC9E");
-                downloadTableButton.getStyle().set("--vaadin-button-text-color", "white");
-                downloadTableButton.getStyle().set("margin-left", "100px");
-
-                HorizontalLayout header = new HorizontalLayout(new H2(table.getId()), downloadTableButton);
-                Dialog resultDialog = new Dialog(header);
-                VerticalLayout dialogLayout = new VerticalLayout(resultTableGrid(table));
-                Button closeButton = new Button(new Icon("lumo", "cross"), buttonEvent -> resultDialog.close());
-                resultDialog.add(dialogLayout);
-                resultDialog.getHeader().add(closeButton);
-                resultDialog.setWidth("4000px");
-                resultDialog.open();
-            });
-
-            Button toQueryButton = new Button("Use as query", event -> setQuery(resultTable.second()));
-            toQueryButton.getStyle().set("--vaadin-button-text-color", "white");
-            toQueryButton.getStyle().set("background-color", "#636363");
-
-            Button tableStatsButton = new Button(new Icon(VaadinIcon.INFO_CIRCLE), statsEvent -> {
-                Dialog statsDialog = new Dialog("Table statistics");
-                VerticalLayout statsLayout = new VerticalLayout();
-                Map<String, Integer> stats = tableStats(table);
-
-                for (Map.Entry<String, Integer> stat : stats.entrySet())
-                {
-                    H4 statContent = new H4(stat.getKey() + ": " + stat.getValue());
-                    statsLayout.add(statContent);
-                }
-
-                Button closeButton = new Button(new Icon("lumo", "cross"), buttonEvent -> statsDialog.close());
-                statsLayout.setAlignItems(FlexComponent.Alignment.END);
-                statsLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
-                statsDialog.add(statsLayout);
-                statsDialog.getHeader().add(closeButton);
-                statsDialog.open();
-            });
-            VerticalLayout tableLayout = new VerticalLayout(tableIdLabel, tableSnippet, new HorizontalLayout(toQueryButton, tableStatsButton));
-            HorizontalLayout resultLayout = new HorizontalLayout(tableLayout);
-            layout.add(resultLayout);
-        }
-
-        return layout;
-    }
-
-    private static Component tableSnippet(Table<String> table)
-    {
-        int rows = Integer.min(table.rowCount(), 2), columns = Integer.min(table.columnCount(), 3);
-        Grid<List<String>> snippetGrid = new Grid<>();
-        List<List<String>> snippetTable = new ArrayList<>();
+        List<List<String>> newTable = new ArrayList<>();
+        int rows = table.rowCount();
 
         for (int row = 0; row < rows; row++)
         {
-            List<String> tableRow = new ArrayList<>();
+            Table.Row<String> tableRow = table.getRow(row);
+            int columns = tableRow.size();
+            List<String> columnItems = new ArrayList<>();
 
             for (int column = 0; column < columns; column++)
             {
-                tableRow.add(table.getRow(row).get(column));
+                String cell = table.getRow(row).get(column);
+                List<String> links = keywordSearch(cell);
+
+                if (!links.isEmpty())
+                {
+                    columnItems.add(links.get(0));
+                }
+
+                else
+                {
+                    columnItems.add("");
+                }
             }
 
-            snippetTable.add(tableRow);
-        }
-
-        snippetGrid.setItems(snippetTable);
-
-        for (int column = 0; column < columns; column++)
-        {
-            int i = column;
-            snippetGrid.addColumn(row -> row.get(i)).setHeader(table.getColumnLabels()[i]);
-        }
-
-        snippetGrid.setHeight("130px");
-        snippetGrid.setWidth("500px");
-
-        return snippetGrid;
-    }
-
-    private Dialog statsDialog()
-    {
-        Dialog dialog = new Dialog("Statistics");
-        VerticalLayout layout = new VerticalLayout();
-        H4 runtime = new H4("Runtime: " + this.result.getRuntime() / 1000000000 + "s"),
-                reduction = new H4("Search space reduction: " + this.result.getReduction() * 100 + "%");
-        layout.add(runtime, reduction);
-        dialog.add(layout);
-
-        Button closeButton = new Button(new Icon("lumo", "cross"), event -> dialog.close());
-        dialog.getHeader().add(closeButton);
-
-        return dialog;
-    }
-
-    private static Component resultTableGrid(Table<String> table)
-    {
-        Grid<List<String>> grid = new Grid<>();
-        grid.setItems(table.toList());
-
-        for (int i = 0; i < table.getColumnLabels().length; i++)
-        {
-            int index = i;
-            grid.addColumn(row -> row.get(index)).setHeader(table.getColumnLabels()[index]);
-        }
-
-        return grid;
-    }
-
-    private static Anchor downloadContent(String outputFile, String label, byte[] content)
-    {
-        StreamResource resource = new StreamResource(outputFile, () -> new ByteArrayInputStream(content));
-        Anchor anchor = new Anchor(resource, label);
-        anchor.getElement().setAttribute("download", true);
-
-        return anchor;
-    }
-
-    private Set<Pair<String, Integer>> tableContents()
-    {
-        Set<Pair<String, Integer>> contents = new TreeSet<>(Comparator.comparing(Pair::getFirst));
-
-        for (List<StringBuilder> row : this.query)
-        {
-            for (StringBuilder cell : row)
+            if (columnItems.stream().noneMatch(CharSequence::isEmpty))
             {
-                String content = cell.toString();
+                newTable.add(columnItems);
+            }
+        }
 
-                if (!content.isEmpty())
+        if (!newTable.isEmpty())
+        {
+            for (int i = 0; i < newTable.get(0).size(); i++)
+            {
+                int column = i;
+
+                if (newTable.stream().allMatch(row -> row.get(column).isEmpty()))
                 {
-                    contents.add(new Pair<>(content, count(content)));
+                    newTable.forEach(row -> row.remove(column));
                 }
             }
         }
 
-        return contents;
-    }
-
-    private Dialog errorDialog(String message)
-    {
-        Dialog errorDialog = new Dialog("Error");
-        VerticalLayout layout = new VerticalLayout();
-        H4 h4Message = new H4(message);
-        layout.add(h4Message);
-        errorDialog.add(layout);
-
-        Button closeButton = new Button(new Icon("lumo", "cross"), event -> errorDialog.close());
-        errorDialog.getHeader().add(closeButton);
-        add(errorDialog);
-
-        return errorDialog;
-    }
-
-    private Result parseDebugResult()
-    {
-        try (BufferedReader reader = new BufferedReader(new FileReader("first_output.json")))
-        {
-            int c;
-            StringBuilder builder = new StringBuilder();
-
-            while ((c = reader.read()) != -1)
-            {
-                builder.append((char) c);
-            }
-
-            return Result.fromJson(builder.toString());
-        }
-
-        catch (IOException e)
-        {
-            return new Result(0, List.of(), -1.0, -1.0, Map.of());
-        }
+        this.queryTable.setPresentationValue(newTable);
+        renderEnteredValues();
     }
 }
