@@ -282,13 +282,23 @@ public class SearchView extends Div
 
         Query query = parseQuery();
         boolean prefilter = this.prefilterCheckbox.getValue();
-        TableSearch.EntitySimilarity entitySimilarity = switch (this.similaritySelect.getValue())
+        TableSearch.EntitySimilarity entitySimilarity;
+
+        if (this.similaritySelect.getValue().toLowerCase().contains("types"))
         {
-            case "RDF types": yield TableSearch.EntitySimilarity.JACCARD_TYPES;
-            case "RDF Predicates": yield TableSearch.EntitySimilarity.JACCARD_PREDICATES;
-            case "Embeddings": yield TableSearch.EntitySimilarity.EMBEDDINGS_ABS;
-            default: yield null;
-        };
+            entitySimilarity = TableSearch.EntitySimilarity.JACCARD_TYPES;
+        }
+
+        else if (this.similaritySelect.getValue().toLowerCase().contains("predicates"))
+        {
+            entitySimilarity = TableSearch.EntitySimilarity.JACCARD_PREDICATES;
+        }
+
+        else
+        {
+            entitySimilarity = TableSearch.EntitySimilarity.EMBEDDINGS_ABS;
+        }
+
         this.currentResult = this.dl.search(query, k, entitySimilarity, prefilter);
         this.resultsGrid.setItems(this.currentResult.getTables());
     }
@@ -329,7 +339,7 @@ public class SearchView extends Div
                 snippetGrid.addColumn(row -> idx < row.size() ? row.get(idx) : "").setHeader("Col " + (c+1));
             }
 
-            snippetGrid.setItems(rt.second().toList());
+            snippetGrid.setItems(rt.second().toList().subList(0, 3));
             snippetGrid.setAllRowsVisible(true);
             snippetGrid.addItemClickListener(ev -> {
                 // Clicking a snippet row opens full table dialog
