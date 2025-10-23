@@ -220,7 +220,7 @@ public class SearchView extends Div
     private void renderEnteredValues()
     {
         List<List<String>> queryTable = this.queryTable.generateModelValue();
-        var nonEmpty = new ArrayList<Map.Entry<String, String>>();
+        Set<Map.Entry<String, String>> nonEmpty = new HashSet<>();
         Div list = new Div();
         this.enteredValuesList.removeAll();
 
