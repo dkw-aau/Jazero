@@ -429,7 +429,9 @@ public class SearchView extends Div
 
         if (!newTable.isEmpty())
         {
-            for (int i = 0; i < newTable.get(0).size(); i++)
+            int columns = newTable.get(0).size();
+
+            for (int i = 0; i < columns; i++)
             {
                 int column = i;
 
@@ -438,9 +440,14 @@ public class SearchView extends Div
                     newTable.forEach(row -> row.remove(column));
                 }
             }
+
+            this.queryTable.setPresentationValue(newTable);
+            renderEnteredValues();
         }
 
-        this.queryTable.setPresentationValue(newTable);
-        renderEnteredValues();
+        else
+        {
+            Notification.show("Could not construct query table from this result table", 2500, Notification.Position.MIDDLE);
+        }
     }
 }
