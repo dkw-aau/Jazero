@@ -45,7 +45,7 @@ import java.util.*;
 @VaadinSessionScope
 public class SearchView extends Div
 {
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private DataLake dl;
     private String dataLake = null, dataLakeIp;
     private User user = null;
