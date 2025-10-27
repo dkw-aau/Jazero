@@ -14,8 +14,9 @@ public class SearchStatsDialog extends Dialog
         setResizable(true);
 
         Div content = new Div();
-        content.add(new H4("Search runtime: " + runtime + "ms"));
-        content.add(new H4("Search space reduction: " + reduction + "%"));
+        String runtimeValue = String.format("%.2f", runtime / 1000), reductionValue = String.format("%.2f", reduction);
+        content.add(new H4("Search runtime: " + runtimeValue + "s"));
+        content.add(new H4("Search space reduction: " + reductionValue + "%"));
         add(content);
     }
 }

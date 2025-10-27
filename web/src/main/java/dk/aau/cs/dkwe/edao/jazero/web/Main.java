@@ -34,7 +34,7 @@ public class Main implements AppShellConfigurator, VaadinServiceInitListener
     @Override
     public void configurePage(AppShellSettings settings)
     {
-        settings.addFavIcon("icon", "images/logo.png", "16x16");
+        settings.addFavIcon("icon", "images/logo_old.png", "16x16");
     }
 
     @Override

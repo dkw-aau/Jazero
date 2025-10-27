@@ -1,5 +1,11 @@
 @import "search.css";
 
+html, body {
+    height: 100%;
+    margin: 0;
+    background-color: #557864;
+}
+
 .v-loading-indicator {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -31,7 +37,7 @@
 
 .glass-card {
     border-radius: 16px;
-    background: rgba(14, 151, 242, 0.15); /* semi-transparent */
+    background: #EBF8FF; /* semi-transparent */
     backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid rgba(14, 151, 242, 0.25);
@@ -45,6 +51,12 @@
     box-shadow: 0 12px 32px rgba(0,0,0,0.25);
 }
 
+html, body {
+    height: 100%;
+    margin: 0;
+    background-color: #5B6C5D;
+}
+
 h2, h3 {
     margin-top: var(--lumo-space-m);
     margin-bottom: var(--lumo-space-s);
@@ -55,4 +67,35 @@ h2, h3 {
     border: 1px solid var(--lumo-contrast-10pct);
     border-radius: var(--lumo-border-radius-m);
     overflow: hidden;
+}
+
+vaadin-button {
+    color: black;
+}
+
+vaadin-combo-box,
+vaadin-select {
+    --lumo-body-text-color: black;
+    color: black;
+}
+
+vaadin-combo-box::part(input-field)::placeholder {
+    color: black;   /* darker gray */
+    opacity: 1;    /* ensure it’s not faded */
+}
+
+.search-button {
+    background-color: #4ac600;
+    color: white;
+    border-radius: 4px;
+    font-weight: bold;
+    padding: 0.5em 1.5em;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.search-button:hover {
+    background-color: #024e1f;
+    color: white;
 }

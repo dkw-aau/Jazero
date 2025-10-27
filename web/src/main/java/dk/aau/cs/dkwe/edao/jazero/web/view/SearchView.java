@@ -45,7 +45,7 @@ import java.util.*;
 @VaadinSessionScope
 public class SearchView extends Div
 {
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
     private DataLake dl;
     private String dataLake = null, dataLakeIp;
     private User user = null;
@@ -59,7 +59,7 @@ public class SearchView extends Div
     private final IntegerField topKField = new IntegerField("Top-K");
     private final Checkbox prefilterCheckbox = new Checkbox("Prefilter search space");
 
-    private final Button searchButton = new Button("Search");
+    private final Button searchButton = new Button("Search", VaadinIcon.SEARCH.create());
     private final Button clearResultsButton = new Button("Clear results");
     private final Button searchStatsButton = new Button("Show search statistics", VaadinIcon.CHART.create());
 
@@ -76,6 +76,7 @@ public class SearchView extends Div
         add(buildHeader());
 
         this.searchButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        this.searchButton.addClassName("search-button");
         this.clearResultsButton.addThemeVariants(ButtonVariant.LUMO_ERROR);
         this.searchStatsButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
 
@@ -101,16 +102,24 @@ public class SearchView extends Div
         Set<String> dataLakes = ConfigReader.dataLakes();
         dataLakeStats.setVisible(false);
         this.dataLakeSelect.setItems(dataLakes);
-        this.dataLakeSelect.setClassName("combo-box");
         this.dataLakeSelect.addValueChangeListener(e -> {
             this.dataLake = e.getValue();
             this.dataLakeIp = ConfigReader.getIp(this.dataLake);
             this.user = new User(ConfigReader.getUsername(this.dataLake), ConfigReader.getPassword(this.dataLake), false);
             this.dl = DEBUG ? new MockDataLakeService() : new DataLakeService(this.dataLakeIp, this.user);
-            Notification.show("Connected to '" + e.getValue() + "'", 2000, Notification.Position.TOP_CENTER);
-            this.root.setVisible(true);
-            dataLakeStats.setVisible(true);
-            dataLakeStats.setText(this.dataLake + " Statistics");
+
+            if (isConnected())
+            {
+                Notification.show("Connected to '" + e.getValue() + "'", 3000, Notification.Position.TOP_CENTER);
+                this.root.setVisible(true);
+                dataLakeStats.setVisible(true);
+                dataLakeStats.setText(this.dataLake + " Statistics");
+            }
+
+            else
+            {
+                Notification.show("Couldn't connect to '" + e.getValue() + "'", 3000, Notification.Position.TOP_CENTER);
+            }
         });
         this.dataLakeSelect.setPlaceholder("Select Data Lake");
         selectDataLakeLayout.add(new H2("Select Data Lake"), this.dataLakeSelect, dataLakeStats);
@@ -119,7 +128,7 @@ public class SearchView extends Div
         add(selectDataLakeLayout);
 
         // Query table
-        HorizontalLayout enteredHeader = new HorizontalLayout(new H4("Entity Counts"));
+        HorizontalLayout enteredHeader = new HorizontalLayout(new H4("Entity Frequency in Tables"));
         Card queryCard = new Card(), entityCountsCard = new Card();
         queryCard.addClassName("glass-card");
         entityCountsCard.addClassName("glass-card");
@@ -134,7 +143,6 @@ public class SearchView extends Div
         this.topKField.setMin(1);
         this.topKField.setStep(1);
         this.topKField.setValue(10);
-        this.topKField.setWidth("120px");
         this.topKField.setStepButtonsVisible(true);
         this.prefilterCheckbox.setValue(false);
 
@@ -160,7 +168,8 @@ public class SearchView extends Div
         resultsCard.setVisible(false);
 
         FormLayout paramsLayout = new FormLayout(this.similaritySelect, this.topKField, this.prefilterCheckbox, this.searchButton);
-        paramsLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("600px", 3));
+        paramsLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("500px", 4));
 
         Card parameterCard = new Card();
         parameterCard.addClassName("glass-card");
@@ -171,6 +180,11 @@ public class SearchView extends Div
         parameterCard.add(new H4("Parameters"), paramsLayout);
         this.root.add(parameterCard, resultsCard);
         add(this.root);
+    }
+
+    private boolean isConnected()
+    {
+        return this.dl.ping().getResponseCode() < 300;
     }
 
     private Query parseQuery()
@@ -200,7 +214,7 @@ public class SearchView extends Div
         header.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.getStyle().set("padding", "5px");
-        header.getStyle().set("border-bottom", "1px solid #ccc");
+        header.getStyle().set("border-bottom", "1px solid #717378");
         header.getStyle().set("background-size", "cover");
         header.getStyle().set("height", "150px");
 
@@ -327,7 +341,7 @@ public class SearchView extends Div
     private void configureResultsGrid()
     {
         this.resultsGrid.addColumn(v -> v.second().getId()).setHeader("Table Name").setAutoWidth(true).setFlexGrow(1);
-        this.resultsGrid.addColumn(Pair::first).setHeader("Relevance").setAutoWidth(true).setFlexGrow(0);
+        this.resultsGrid.addColumn(pair -> String.format("%.2f", pair.first())).setHeader("Relevance").setAutoWidth(true).setFlexGrow(0);
         this.resultsGrid.addComponentColumn(rt -> {
             // Snippet table as a small grid
             Grid<List<String>> snippetGrid = new Grid<>();
@@ -339,7 +353,8 @@ public class SearchView extends Div
                 snippetGrid.addColumn(row -> idx < row.size() ? row.get(idx) : "").setHeader("Col " + (c+1));
             }
 
-            snippetGrid.setItems(rt.second().toList().subList(0, 3));
+            List<List<String>> resultTable = rt.second().toList();
+            snippetGrid.setItems(resultTable.subList(0, Math.min(3, resultTable.size())));
             snippetGrid.setAllRowsVisible(true);
             snippetGrid.addItemClickListener(ev -> {
                 // Clicking a snippet row opens full table dialog
