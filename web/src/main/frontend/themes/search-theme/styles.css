@@ -3,7 +3,7 @@
 html, body {
     height: 100%;
     margin: 0;
-    background-color: #B3DEC1;
+    background-color: #AFE0CE;
 }
 
 .v-loading-indicator {
@@ -46,16 +46,10 @@ html, body {
     padding: var(--lumo-space-m);
 }
 
-.glass-card:hover {
+/*.glass-card:hover {
     transform: translateY(-6px) scale(1.02);
     box-shadow: 0 12px 32px rgba(0,0,0,0.25);
-}
-
-html, body {
-    height: 100%;
-    margin: 0;
-    background-color: #5B6C5D;
-}
+}*/
 
 h2, h3 {
     margin-top: var(--lumo-space-m);
