@@ -10,10 +10,7 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.H4;
-import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -235,6 +232,7 @@ public class SearchView extends Div
     {
         List<List<String>> queryTable = this.queryTable.generateModelValue();
         Set<Map.Entry<String, String>> nonEmpty = new HashSet<>();
+        Set<String> seenCells = new HashSet<>();
         Div list = new Div();
         this.enteredValuesList.removeAll();
 
@@ -247,9 +245,10 @@ public class SearchView extends Div
         {
             for (var cell : row)
             {
-                if (cell != null && !cell.isBlank())
+                if (cell != null && !cell.isBlank() && !seenCells.contains(cell))
                 {
                     Response countResponse = this.dl.count(cell);
+                    seenCells.add(cell);
 
                     if (countResponse.getResponseCode() == 200)
                     {
@@ -267,7 +266,7 @@ public class SearchView extends Div
 
         for (var entry : nonEmpty)
         {
-            list.add(new Div(new Div(entry.getKey() + " — " + entry.getValue())));
+            list.add(new Div(new H5(entry.getKey() + " — " + entry.getValue())));
         }
 
         this.enteredValuesList.add(list);
