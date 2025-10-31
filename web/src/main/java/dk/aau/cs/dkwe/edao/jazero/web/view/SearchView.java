@@ -153,7 +153,7 @@ public class SearchView extends Div
                 return;
             }
 
-            new SearchStatsDialog(this.currentResult.getReduction(), this.currentResult.getRuntime()).open();
+            new SearchStatsDialog(this.currentResult.getReduction() * 100, this.currentResult.getRuntime()).open();
         });
 
         // Results grid
