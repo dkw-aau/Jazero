@@ -10,27 +10,29 @@ services:
     networks:
       - jazero_web
     ports:
-      - "8080:8080"
+      - "7080:7080"
+    labels:
+      - "traefik.http.routers.web.rule=Host(`localhost`)"
 
-  nginx:
-    image: nginx:1.15-alpine
-    container_name: nginx
-    restart: unless-stopped
+  traefik_proxy:
+    image: traefik:v3.6
+    command:
+      #- "--api.insecure=true" # Development-only
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    networks:
+      - jazero_web
+    ports:
+      - "80:80"
+      #- "7070:8080" # Development-only
     depends_on:
       web:
         condition: service_started
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx:/etc/nginx/conf.d
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    networks:
-      - jazero_web
     links:
       - web
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.yml:/etc/traefik/traefik.yml
 
 networks:
   jazero_web:

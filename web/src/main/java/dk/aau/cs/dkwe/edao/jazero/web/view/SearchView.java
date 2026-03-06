@@ -3,11 +3,13 @@ package dk.aau.cs.dkwe.edao.jazero.web.view;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.*;
@@ -16,6 +18,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
@@ -37,6 +40,9 @@ import dk.aau.cs.dkwe.edao.structures.TableQuery;
 import org.springframework.web.servlet.View;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Route(value = "")
 @VaadinSessionScope
@@ -62,6 +68,9 @@ public class SearchView extends Div
 
     private final Grid<Pair<Double, Table<String>>> resultsGrid = new Grid<>();
     private Result currentResult;
+
+    private static final int MAX_THREADS = 10;
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(MAX_THREADS);
 
     public SearchView(View error, Main main)
     {
@@ -168,15 +177,27 @@ public class SearchView extends Div
         paramsLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("500px", 4));
 
+        Dialog loadingDialog = new Dialog();
+        ProgressBar bar = new ProgressBar();
+        loadingDialog.setModal(true);
+        loadingDialog.setCloseOnEsc(false);
+        loadingDialog.setCloseOnOutsideClick(false);
+        bar.setIndeterminate(true);
+        loadingDialog.add(bar);
+
         Card parameterCard = new Card();
         parameterCard.addClassName("glass-card");
         this.searchButton.addClickListener(e -> {
-            executeSearch();
-            resultsCard.setVisible(true);
+            UI ui = UI.getCurrent();
+            loadingDialog.open();
+            CompletableFuture.runAsync(this::executeSearch).thenRun(() -> ui.access(() -> {
+                loadingDialog.close();
+                resultsCard.setVisible(true);
+            }));
         });
         parameterCard.add(new H4("Parameters"), paramsLayout);
         this.root.add(parameterCard, resultsCard);
-        add(this.root);
+        add(this.root, loadingDialog);
     }
 
     private boolean isConnected()
