@@ -12,7 +12,7 @@ services:
     ports:
       - "7080:7080"
     labels:
-      - "traefik.http.routers.web.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.web.rule=Host(`jazero.dk`)"
       - "traefik.enable=true"
 
   traefik_proxy:
@@ -34,14 +34,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik.yml:/etc/traefik/traefik.yml
-    labels:
-      - "traefik.enable=true"
-      - traefik.http.routers.traefik.entrypoints=http
-      - "homepage.group=Security"
-      - "homapage.name=Traefik"
-      - "homepage.href=http://traefik.${DOMAIN}"
-      - "homepage.widget.type=traefik"
-      - "homepage.widget.url=http://traefik:8080"
 
 networks:
   jazero_web:
