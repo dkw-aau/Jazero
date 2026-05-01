@@ -73,7 +73,10 @@ public class TableSearch extends AbstractSearch
 
             for (File f : tableFiles)
             {
-                Future<Pair<File, Double>> future = threadPool.submit(() -> new Pair<>(f, this.ranker.score(query, f)));
+                Future<Pair<File, Double>> future = threadPool.submit(() -> {
+                    Double score = this.ranker.score(query, f);
+                    return new Pair<>(f, score != null ? score : 0.0);
+                });
                 parsed.add(future);
             }
 
