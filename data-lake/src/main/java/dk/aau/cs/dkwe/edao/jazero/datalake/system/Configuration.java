@@ -136,8 +136,7 @@ public class Configuration
         if (!props.contains("EKGManagerPort"))
             props.setProperty("EKGManagerPort", "8083");
 
-        if (!props.contains("GoogleAPIKey"))
-            props.setProperty("GoogleAPIKey", "AIzaSyB9mH-706htjAcFBxfrXaJ5jpDnuBfxhm8");
+        // Set GoogleAPIKey in the configuration file.
 
         if (!props.contains("LuceneDir"))
             props.setProperty("LuceneDir", "/index/lucene");
